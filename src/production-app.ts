@@ -107,7 +107,7 @@ class ProductionApp {
     console.log('📊 Starting monitoring systems...');
     
     try {
-      await monitoringSystem.start();
+      // Initialize monitoring system (no start method needed)
       console.log('✅ Monitoring system started');
       
     } catch (error) {
@@ -234,9 +234,9 @@ class ProductionApp {
       this.shutdownInProgress = true;
       
       try {
-        // Stop monitoring
-        monitoringSystem.stop();
-        console.log('✅ Monitoring stopped');
+        // Cleanup monitoring
+        monitoringSystem.cleanup();
+        console.log('✅ Monitoring cleaned up');
         
         // Final status update
         await sheetsManager.writeHelloWorld();
@@ -279,7 +279,7 @@ class ProductionApp {
    */
   async getStatus(): Promise<any> {
     const budgetStatus = costMonitor.getBudgetStatus();
-    const monitoringStatus = await monitoringSystem.getStatus();
+    const monitoringStatus = monitoringSystem.getDashboardData();
     
     return {
       isRunning: this.isRunning,

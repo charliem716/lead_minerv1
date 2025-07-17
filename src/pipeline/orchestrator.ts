@@ -385,7 +385,7 @@ export class PipelineOrchestrator {
           score: classification.confidenceScore,
           contactEmail: content.contactInfo?.emails?.[0],
           contactPhone: content.contactInfo?.phones?.[0],
-          staffSize: Math.floor(Math.random() * 100) + 10, // Mock staff size
+          staffSize: 0, // Staff size unknown (would come from enrichment data)
           createdAt: new Date(),
           updatedAt: new Date(),
           status: 'qualified'

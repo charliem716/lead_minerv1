@@ -285,19 +285,50 @@ export class CostMonitor {
   }
 
   /**
-   * Load cost history from storage (mock implementation)
+   * Load cost history from storage (file-based implementation)
    */
   private loadCostHistory(): void {
-    // In production, this would load from a persistent store
-    console.log('💾 Loading cost history from storage');
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const historyFile = path.join(process.cwd(), 'cost-history.json');
+      
+      if (fs.existsSync(historyFile)) {
+        const data = fs.readFileSync(historyFile, 'utf8');
+        const history = JSON.parse(data);
+                 // Load the data into current cost tracking
+         this.costs = history.entries || [];
+         const totalCost = this.costs.reduce((sum, entry) => sum + entry.cost, 0);
+         console.log(`💾 Loaded cost history: $${totalCost.toFixed(2)}`);
+      } else {
+        console.log('💾 No cost history file found, starting fresh');
+      }
+    } catch (error) {
+      console.error('Error loading cost history:', error);
+    }
   }
 
   /**
-   * Save cost history to storage (mock implementation)
+   * Save cost history to storage (file-based implementation)
    */
   private saveCostHistory(): void {
-    // In production, this would save to a persistent store
-    // For now, just log the current total
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const historyFile = path.join(process.cwd(), 'cost-history.json');
+      
+             const totalCost = this.costs.reduce((sum, entry) => sum + entry.cost, 0);
+       const historyData = {
+         totalCost: totalCost,
+         lastUpdated: new Date().toISOString(),
+         entries: this.costs
+       };
+       
+       fs.writeFileSync(historyFile, JSON.stringify(historyData, null, 2));
+       console.log(`💾 Saved cost history: $${totalCost.toFixed(2)}`);
+    } catch (error) {
+      console.error('Error saving cost history:', error);
+    }
     const status = this.getBudgetStatus();
     if (status.dailySpend > 0) {
       console.log(`💾 Cost history saved - Total: $${status.totalSpent.toFixed(3)}`);

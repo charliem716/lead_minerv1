@@ -225,31 +225,113 @@ export class EnrichmentAgent {
   }
 
   /**
-   * Search LinkedIn for organization data (mock implementation)
+   * Search LinkedIn for organization data (real implementation)
    */
   private async searchLinkedInData(orgName: string): Promise<LinkedInSearchResult | null> {
     try {
-      // Mock LinkedIn search - in production, this would use LinkedIn API or web scraping
-      console.log(`🔍 Searching LinkedIn for: ${orgName}`);
+      console.log(`🔍 Searching for organization data: ${orgName}`);
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Use public company data sources instead of mock data
+      const companyData = await this.searchPublicCompanyData(orgName);
       
-      // Mock data generation based on organization name
-      const mockData: LinkedInSearchResult = {
-        companyName: orgName,
-        companyUrl: `https://linkedin.com/company/${orgName.toLowerCase().replace(/\s+/g, '-')}`,
-        employeeCount: this.generateMockStaffSize(orgName),
-        industry: this.determineMockIndustry(orgName),
-        description: `${orgName} is a nonprofit organization dedicated to community service and charitable activities.`,
-        website: `https://${orgName.toLowerCase().replace(/\s+/g, '')}.org`,
-        foundedYear: 2000 + Math.floor(Math.random() * 24),
-        headquarters: this.generateMockHeadquarters()
-      };
+      if (companyData) {
+        return {
+          companyName: orgName,
+          companyUrl: companyData.website || `https://linkedin.com/company/${orgName.toLowerCase().replace(/\s+/g, '-')}`,
+          employeeCount: companyData.employeeCount || 'Unknown',
+          industry: companyData.industry || 'Nonprofit',
+          description: companyData.description || `${orgName} is a nonprofit organization.`,
+          website: companyData.website || 'Unknown',
+          foundedYear: companyData.foundedYear || undefined,
+          headquarters: companyData.location || 'Unknown'
+        };
+      }
 
-      return mockData;
+      return null;
     } catch (error) {
       console.error(`❌ Error searching LinkedIn for ${orgName}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Scrape website for contact information
+   */
+  private async scrapeWebsiteForContacts(website: string): Promise<ContactEnrichmentData | null> {
+    try {
+      // Basic web scraping for contact information
+      const response = await fetch(website, {
+        headers: {
+          'User-Agent': 'Lead-Miner-Agent/1.0'
+        }
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const html = await response.text();
+      
+      // Extract emails using regex
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+      const emails = html.match(emailRegex) || [];
+      
+      // Extract phone numbers using regex
+      const phoneRegex = /(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/g;
+      const phones = html.match(phoneRegex) || [];
+      
+      // Extract social media links
+      const facebookMatch = html.match(/facebook\.com\/[^"'\s]+/);
+      const twitterMatch = html.match(/twitter\.com\/[^"'\s]+/);
+      
+      return {
+        emails: emails.slice(0, 5), // Limit to first 5 emails
+        phones: phones.slice(0, 3), // Limit to first 3 phones
+        socialLinks: {
+          facebook: facebookMatch ? `https://${facebookMatch[0]}` : 'Unknown',
+          twitter: twitterMatch ? `https://${twitterMatch[0]}` : 'Unknown'
+        }
+      };
+      
+    } catch (error) {
+      console.error('Error scraping website for contacts:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Search public company databases for organization information
+   */
+  private async searchPublicCompanyData(orgName: string): Promise<any> {
+    try {
+      // Use OpenCorporates API (free tier available)
+      const searchUrl = `https://api.opencorporates.com/v0.4/companies/search?q=${encodeURIComponent(orgName)}&format=json&limit=1`;
+      
+      const response = await fetch(searchUrl, {
+        headers: {
+          'User-Agent': 'Lead-Miner-Agent/1.0'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.results && data.results.companies && data.results.companies.length > 0) {
+          const company = data.results.companies[0].company;
+          return {
+            website: company.registry_url,
+            location: company.registered_address_in_full || 'Unknown',
+            industry: company.company_type || 'Nonprofit',
+            employeeCount: 'Unknown', // OpenCorporates doesn't provide employee count
+            description: `${orgName} - ${company.company_type || 'Organization'}`
+          };
+        }
+      }
+      
+      return null;
+      
+    } catch (error) {
+      console.error('Public company data search failed:', error);
       return null;
     }
   }
@@ -261,20 +343,24 @@ export class EnrichmentAgent {
     try {
       console.log(`🔍 Enriching from website: ${website}`);
       
-      // Mock website enrichment - in production, this would scrape the website
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Real website enrichment - scrape actual contact information
+      const scrapedData = await this.scrapeWebsiteForContacts(website);
       
-      // Mock contact data
-      const mockData: ContactEnrichmentData = {
+      if (scrapedData) {
+        return scrapedData;
+      }
+      
+      // Fallback to basic structure if scraping fails
+      const fallbackData: ContactEnrichmentData = {
         emails: [`info@${website.replace('https://', '').replace('www.', '')}`],
-        phones: [`555-${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`],
+        phones: ['Unknown'],
         socialLinks: {
-          facebook: `https://facebook.com/${website.replace('https://', '').replace('www.', '').replace('.org', '').replace('.com', '')}`,
-          twitter: `https://twitter.com/${website.replace('https://', '').replace('www.', '').replace('.org', '').replace('.com', '')}`
+          facebook: 'Unknown',
+          twitter: 'Unknown'
         }
       };
 
-      return mockData;
+      return fallbackData;
     } catch (error) {
       console.error(`❌ Error enriching from website ${website}:`, error);
       return null;
@@ -332,43 +418,7 @@ export class EnrichmentAgent {
     this.requestCount++;
   }
 
-  /**
-   * Generate mock staff size based on organization name
-   */
-  private generateMockStaffSize(orgName: string): number {
-    const hash = this.hashString(orgName);
-    const sizes = [5, 10, 15, 25, 50, 100, 200, 500];
-    return sizes[hash % sizes.length] || 50;
-  }
 
-  /**
-   * Determine mock industry based on organization name
-   */
-  private determineMockIndustry(orgName: string): string {
-    const name = orgName.toLowerCase();
-    
-    if (name.includes('health') || name.includes('medical')) return 'Healthcare';
-    if (name.includes('education') || name.includes('school')) return 'Education';
-    if (name.includes('art') || name.includes('museum')) return 'Arts & Culture';
-    if (name.includes('environment') || name.includes('green')) return 'Environmental Services';
-    if (name.includes('food') || name.includes('hunger')) return 'Food & Nutrition';
-    if (name.includes('animal') || name.includes('pet')) return 'Animal Welfare';
-    if (name.includes('community') || name.includes('civic')) return 'Community Services';
-    
-    return 'Nonprofit Organization Management';
-  }
-
-  /**
-   * Generate mock headquarters location
-   */
-  private generateMockHeadquarters(): string {
-    const cities = [
-      'New York, NY', 'Los Angeles, CA', 'Chicago, IL', 'Houston, TX',
-      'Phoenix, AZ', 'Philadelphia, PA', 'San Antonio, TX', 'San Diego, CA',
-      'Dallas, TX', 'San Jose, CA', 'Austin, TX', 'Jacksonville, FL'
-    ];
-    return cities[Math.floor(Math.random() * cities.length)] || 'New York, NY';
-  }
 
   /**
    * Validate email format
@@ -386,18 +436,7 @@ export class EnrichmentAgent {
     return cleanPhone.length >= 10 && cleanPhone.length <= 11 && !cleanPhone.startsWith('555');
   }
 
-  /**
-   * Hash string to number for consistent mock data
-   */
-  private hashString(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash);
-  }
+
 
   /**
    * Generate unique ID

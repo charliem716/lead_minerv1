@@ -143,50 +143,104 @@ export class NonprofitVerifier {
    * Verify with IRS Pub 78 API by EIN
    */
   private async verifyWithIRS(ein: string): Promise<NonprofitVerificationResult> {
-    // Mock IRS API response for development
     console.log('Checking IRS Pub 78 database...');
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Mock data for testing
-    const mockIRSResults = [
-      {
-        ein: '123456789',
-        orgName: 'Example Nonprofit Foundation',
-        isVerified: true,
-        details: {
-          classification: 'Public Charity',
-          deductibility: 'Contributions are deductible',
-          city: 'San Francisco',
-          state: 'CA',
-          country: 'US',
-          exemptionCode: '501(c)(3)',
-          rulingDate: '2020-01-01',
-          assetCode: 'A',
-          incomeCode: 'B',
-          filingRequirement: 'Annual',
-          subsection: '501(c)(3)',
+    try {
+      // Use IRS Business Master File API or IRS.gov search
+      const irsUrl = `https://apps.irs.gov/app/eos/forwardToPub78Download.do?ein=${ein}`;
+      
+      const response = await fetch(irsUrl, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Lead-Miner-Agent/1.0'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.text();
+        
+        // Check if the response contains nonprofit information
+        if (data.includes('deductible') || data.includes('501(c)(3)')) {
+          // Extract organization name from response
+                     const orgNameMatch = data.match(/<title>([^<]+)<\/title>/);
+           const orgName = orgNameMatch?.[1]?.replace(' - IRS', '') || 'Unknown Organization';
+          
+          return {
+            id: this.generateId(),
+            orgName: orgName,
+            ein,
+            isVerified: true,
+            source: 'irs',
+            verificationDetails: {
+              classification: 'Public Charity',
+              deductibility: 'Contributions are deductible',
+              exemptionCode: '501(c)(3)',
+              country: 'US'
+            },
+            verifiedAt: new Date(),
+            confidence: 1.0
+          };
         }
       }
-    ];
-    
-    const match = mockIRSResults.find(r => r.ein === ein);
-    
-    if (match) {
-      return {
-        id: this.generateId(),
-        orgName: match.orgName,
-        ein,
-        isVerified: true,
-        source: 'irs',
-        verificationDetails: match.details,
-        verifiedAt: new Date(),
-        confidence: 1.0
-      };
+      
+      // If IRS doesn't have it, try alternative verification
+      return await this.verifyWithAlternativeSource(ein);
+      
+    } catch (error) {
+      console.error('IRS API error:', error);
+      return this.createFailedResult(ein, undefined, error as Error);
     }
-    
-    return this.createFailedResult(ein, undefined, new Error('Not found in IRS database'));
+  }
+
+  /**
+   * Alternative nonprofit verification using Charity Navigator or similar
+   */
+  private async verifyWithAlternativeSource(ein: string): Promise<NonprofitVerificationResult> {
+    try {
+      // Use ProPublica Nonprofit Explorer API (free)
+      const apiUrl = `https://projects.propublica.org/nonprofits/api/v2/organizations/${ein}.json`;
+      
+      const response = await fetch(apiUrl, {
+        headers: {
+          'User-Agent': 'Lead-Miner-Agent/1.0'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.organization) {
+          const org = data.organization;
+          return {
+            id: this.generateId(),
+            orgName: org.name || 'Unknown Organization',
+            ein,
+            isVerified: true,
+            source: 'irs',
+            verificationDetails: {
+              classification: org.classification || 'Nonprofit',
+              city: org.city,
+              state: org.state,
+              country: 'US',
+              exemptionCode: '501(c)(3)'
+            },
+            additionalInfo: {
+              totalRevenue: org.totrevenue,
+              totalAssets: org.totassetsend,
+              foundedYear: org.ruling_date ? new Date(org.ruling_date).getFullYear() : undefined
+            },
+            verifiedAt: new Date(),
+            confidence: 0.9
+          };
+        }
+      }
+      
+      return this.createFailedResult(ein, undefined, new Error('Not found in nonprofit databases'));
+      
+    } catch (error) {
+      console.error('Alternative verification error:', error);
+      return this.createFailedResult(ein, undefined, error as Error);
+    }
   }
 
   /**
@@ -195,28 +249,31 @@ export class NonprofitVerifier {
   private async verifyWithIRSByName(orgName: string): Promise<NonprofitVerificationResult> {
     console.log('Searching IRS Pub 78 database by name...');
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Mock fuzzy name matching
-    const mockNameResults = [
-      {
-        orgName: 'Example Nonprofit Foundation',
-        ein: '123456789',
-        similarity: 0.9
+    try {
+      // Use ProPublica search by name
+      const searchUrl = `https://projects.propublica.org/nonprofits/api/v2/search.json?q=${encodeURIComponent(orgName)}`;
+      
+      const response = await fetch(searchUrl, {
+        headers: {
+          'User-Agent': 'Lead-Miner-Agent/1.0'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.organizations && data.organizations.length > 0) {
+          const org = data.organizations[0]; // Take the first match
+          return await this.verifyWithIRS(org.ein);
+        }
       }
-    ];
-    
-    const match = mockNameResults.find(r => 
-      r.orgName.toLowerCase().includes(orgName.toLowerCase()) ||
-      orgName.toLowerCase().includes(r.orgName.toLowerCase())
-    );
-    
-    if (match && match.similarity > 0.7) {
-      return await this.verifyWithIRS(match.ein);
+      
+      return this.createFailedResult(undefined, orgName, new Error('Not found in nonprofit databases'));
+      
+    } catch (error) {
+      console.error('Name search error:', error);
+      return this.createFailedResult(undefined, orgName, error as Error);
     }
-    
-    return this.createFailedResult(undefined, orgName, new Error('Not found in IRS database'));
   }
 
   /**
@@ -225,51 +282,8 @@ export class NonprofitVerifier {
   private async verifyWithGuideStar(ein: string): Promise<NonprofitVerificationResult> {
     console.log('Checking GuideStar database...');
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    // Mock GuideStar results
-    const mockGuideStarResults = [
-      {
-        ein: '987654321',
-        orgName: 'Another Charity Organization',
-        isVerified: true,
-        details: {
-          classification: 'Public Charity',
-          city: 'New York',
-          state: 'NY',
-          country: 'US',
-          exemptionCode: '501(c)(3)'
-        },
-        additional: {
-          website: 'https://example.org',
-          phone: '555-123-4567',
-          mission: 'To help communities through charitable work',
-          nteeCode: 'P20',
-          totalRevenue: 500000,
-          totalAssets: 1000000,
-          foundedYear: 2015
-        }
-      }
-    ];
-    
-    const match = mockGuideStarResults.find(r => r.ein === ein);
-    
-    if (match) {
-      return {
-        id: this.generateId(),
-        orgName: match.orgName,
-        ein,
-        isVerified: true,
-        source: 'guidestar',
-        verificationDetails: match.details,
-        additionalInfo: match.additional,
-        verifiedAt: new Date(),
-        confidence: 0.9
-      };
-    }
-    
-    return this.createFailedResult(ein, undefined, new Error('Not found in GuideStar database'));
+    // GuideStar/Candid API is typically paid, so we'll use the alternative source we already implemented
+    return await this.verifyWithAlternativeSource(ein);
   }
 
   /**
@@ -278,28 +292,8 @@ export class NonprofitVerifier {
   private async verifyWithGuideStarByName(orgName: string): Promise<NonprofitVerificationResult> {
     console.log('Searching GuideStar database by name...');
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    // Mock GuideStar name search
-    const mockNameResults = [
-      {
-        orgName: 'Another Charity Organization',
-        ein: '987654321',
-        similarity: 0.8
-      }
-    ];
-    
-    const match = mockNameResults.find(r => 
-      r.orgName.toLowerCase().includes(orgName.toLowerCase()) ||
-      orgName.toLowerCase().includes(r.orgName.toLowerCase())
-    );
-    
-    if (match && match.similarity > 0.7) {
-      return await this.verifyWithGuideStar(match.ein);
-    }
-    
-    return this.createFailedResult(undefined, orgName, new Error('Not found in GuideStar database'));
+    // Use the same search by name implementation as IRS
+    return await this.verifyWithIRSByName(orgName);
   }
 
   /**

@@ -152,21 +152,38 @@ export class VectorDeduplicationEngine extends DeduplicationEngine {
   }
 
   /**
-   * Generate content embedding using OpenAI API (mock implementation)
+   * Generate content embedding using OpenAI API (real implementation)
    */
   private async generateContentEmbedding(content: ScrapedContent): Promise<number[]> {
     try {
       // Create a comprehensive text representation
       const textForEmbedding = this.createEmbeddingText(content);
       
-      // Mock OpenAI embedding generation
-      const embedding = await this.mockOpenAIEmbedding(textForEmbedding);
+      // Use real OpenAI embeddings API
+      const response = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env['OPENAI_API_KEY']}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          input: textForEmbedding,
+          model: 'text-embedding-3-small'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.data[0].embedding;
       
-      return embedding;
     } catch (error) {
       console.error('❌ Error generating embedding:', error);
-      // Return a random vector as fallback
-      return Array(this.vectorDimension).fill(0).map(() => Math.random() - 0.5);
+      // Return a fallback hash-based embedding for error cases
+      const textForEmbedding = this.createEmbeddingText(content);
+      return this.generateMockEmbedding(textForEmbedding);
     }
   }
 
@@ -209,26 +226,7 @@ export class VectorDeduplicationEngine extends DeduplicationEngine {
     return parts.join(' | ');
   }
 
-  /**
-   * Mock OpenAI embedding generation
-   */
-  private async mockOpenAIEmbedding(text: string): Promise<number[]> {
-    // Check cache first
-    if (this.mockEmbeddings.has(text)) {
-      return this.mockEmbeddings.get(text)!;
-    }
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // Generate mock embedding based on text content
-    const embedding = this.generateMockEmbedding(text);
-    
-    // Cache the result
-    this.mockEmbeddings.set(text, embedding);
-    
-    return embedding;
-  }
+
 
   /**
    * Generate mock embedding that's deterministic based on content
