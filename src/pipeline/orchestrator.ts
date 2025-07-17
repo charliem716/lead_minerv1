@@ -214,7 +214,7 @@ export class PipelineOrchestrator {
   }
 
   /**
-   * REAL search and scraping using actual agents
+   * REAL search using SerpAPI content directly (no browser scraping needed)
    */
   private async realSearchAndScrape(queries: SearchQuery[]): Promise<ScrapedContent[]> {
     const scrapedContent: ScrapedContent[] = [];
@@ -232,29 +232,30 @@ export class PipelineOrchestrator {
           // Execute real search
           const searchResults = await this.searchAgent.executeSearch(query);
           
-          // Scrape top results
-          const urlsToScrape = searchResults
-            .slice(0, 3) // Limit to top 3 results per query
-            .map(result => result.link)
-            .filter(url => url && this.isValidUrl(url));
-          
-          console.log(`🕷️ Scraping ${urlsToScrape.length} URLs...`);
-          
-          // Scrape each URL
-          for (const url of urlsToScrape) {
-            try {
-              const scrapedData = await this.scraperAgent.scrapeUrl(url);
-              if (scrapedData) {
-                scrapedContent.push(scrapedData);
-                console.log(`✅ Scraped: ${scrapedData.title}`);
-              }
-            } catch (error) {
-              console.error(`❌ Failed to scrape ${url}:`, error);
+          // Convert SerpAPI results directly to ScrapedContent (no browser needed!)
+          for (const result of searchResults.slice(0, 5)) { // Process top 5 results per query
+            if (result.link && this.isValidUrl(result.link)) {
+                             const scrapedData: ScrapedContent = {
+                 id: `serp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                 url: result.link,
+                 title: result.title || 'No title',
+                 content: result.snippet || '',
+                 images: [],
+                 scrapedAt: new Date(),
+                 processingStatus: 'pending',
+                 statusCode: 200,
+                 eventInfo: this.extractEventInfoFromSnippet(result.snippet || '', result.title || ''),
+                 contactInfo: this.extractContactInfoFromSnippet(result.snippet || ''),
+                 organizationInfo: this.extractOrgInfoFromSnippet(result.snippet || '', result.title || '')
+               };
+              
+              scrapedContent.push(scrapedData);
+              console.log(`✅ Processed SerpAPI result: ${scrapedData.title}`);
             }
           }
           
           // Rate limiting between queries
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Reduced from 2000ms
           
         } catch (error) {
           console.error(`❌ Search failed for query: ${query.query}`, error);
@@ -265,6 +266,90 @@ export class PipelineOrchestrator {
     
     return scrapedContent;
   }
+
+  /**
+   * Extract event information from SerpAPI snippet
+   */
+  private extractEventInfoFromSnippet(snippet: string, title: string): any {
+    const fullText = `${title} ${snippet}`;
+    
+    // Extract dates
+    const datePatterns = [
+      /\b(\w+\s+\d{1,2},?\s+\d{4})\b/g,
+      /\b(\d{1,2}\/\d{1,2}\/\d{4})\b/g,
+      /\b(\d{4}-\d{2}-\d{2})\b/g
+    ];
+    
+    const dates = [];
+    for (const pattern of datePatterns) {
+      const matches = fullText.match(pattern);
+      if (matches) dates.push(...matches);
+    }
+    
+    // Extract event types
+    const eventTypes = [];
+    const eventKeywords = ['auction', 'gala', 'fundraiser', 'benefit', 'charity event', 'raffle', 'silent auction'];
+    for (const keyword of eventKeywords) {
+      if (fullText.toLowerCase().includes(keyword)) {
+        eventTypes.push(keyword);
+      }
+    }
+    
+         return {
+       title: title,
+       date: dates[0] || undefined,
+       description: snippet
+     };
+  }
+
+  /**
+   * Extract contact information from SerpAPI snippet
+   */
+  private extractContactInfoFromSnippet(snippet: string): any {
+    const emailPattern = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+    const phonePattern = /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g;
+    
+    const emails = snippet.match(emailPattern) || [];
+    const phones = snippet.match(phonePattern) || [];
+    
+              return {
+       emails: emails,
+       phones: phones,
+       address: this.extractLocationFromSnippet(snippet)
+     };
+  }
+
+  /**
+   * Extract organization information from SerpAPI snippet
+   */
+  private extractOrgInfoFromSnippet(snippet: string, title: string): any {
+    const fullText = `${title} ${snippet}`;
+    
+    // Look for organization indicators
+    const orgKeywords = ['foundation', 'nonprofit', 'charity', 'organization', 'society', 'association'];
+    const matchedKeywords = orgKeywords.filter(keyword => 
+      fullText.toLowerCase().includes(keyword)
+    );
+    
+    // Extract potential organization name from title
+    const orgName = title.split(' - ')[0] || title.split(' | ')[0] || title;
+    
+         return {
+       name: orgName,
+       ein: undefined // Will be extracted during verification
+     };
+  }
+
+  /**
+   * Extract location information from text
+   */
+     private extractLocationFromSnippet(text: string): string | undefined {
+     // Common US state patterns
+     const statePattern = /\b(Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming|AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/gi;
+     
+     const stateMatch = text.match(statePattern);
+     return stateMatch ? stateMatch[0] : undefined;
+   }
 
   /**
    * REAL classification using OpenAI
