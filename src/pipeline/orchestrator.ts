@@ -164,56 +164,10 @@ export class PipelineOrchestrator {
   }
 
   /**
-   * Generate search queries based on configuration
+   * Generate search queries using the SearchAgent's diverse strategy
    */
   private async generateSearchQueries(): Promise<SearchQuery[]> {
-    const queries: SearchQuery[] = [];
-    
-    // Get configured search terms
-    const baseTerms = [
-      'nonprofit travel auction',
-      'charity vacation raffle',
-      'nonprofit fundraising travel package',
-      'charity silent auction travel',
-      'fundraising gala travel donation',
-      'nonprofit travel raffle',
-      'charity auction vacation package',
-      'fundraising event travel prize'
-    ];
-
-    // Get configured date ranges from config
-    const months = config.dateRanges.searchMonths || ['March', 'April', 'May', 'September', 'October', 'November', 'December'];
-    const quarters = config.dateRanges.searchQuarters || ['Q4'];
-    const dateRanges = [...months, ...quarters];
-    
-    // Get configured geographic targets from config
-    const states = config.geographic.states.length > 0 ? config.geographic.states : ['CA', 'NY', 'TX', 'FL', 'WA', 'MA', 'PA', 'IL', 'OH', 'GA'];
-
-    let queryCount = 0;
-    for (const baseTerm of baseTerms) {
-      for (const dateRange of dateRanges) {
-        for (const state of states) {
-          if (queryCount >= this.config.maxSearchQueries) break;
-          
-          const query: SearchQuery = {
-            id: `query-${queryCount}`,
-            query: `${baseTerm} ${dateRange} ${state}`,
-            dateRange,
-            geographic: state,
-            createdAt: new Date(),
-            resultsCount: 0,
-            status: 'pending'
-          };
-          
-          queries.push(query);
-          queryCount++;
-        }
-        if (queryCount >= this.config.maxSearchQueries) break;
-      }
-      if (queryCount >= this.config.maxSearchQueries) break;
-    }
-
-    return queries;
+    return this.searchAgent.generateSearchQueries();
   }
 
   /**
@@ -236,7 +190,7 @@ export class PipelineOrchestrator {
           const searchResults = await this.searchAgent.executeSearch(query);
           
           // Convert SerpAPI results directly to ScrapedContent (no browser needed!)
-          for (const result of searchResults.slice(0, 5)) { // Process top 5 results per query
+          for (const result of searchResults.slice(0, 10)) { // Process top 5 results per query
             if (result.link && this.isValidUrl(result.link)) {
                              const eventInfo = this.extractEventInfoFromSnippet(result.snippet || '', result.title || '');
                

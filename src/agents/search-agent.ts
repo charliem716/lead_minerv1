@@ -93,13 +93,88 @@ export class SearchAgent {
       '"beach vacation" charity auction 2025 OR 2026'
     ];
 
+    // Strategy 6: Religious organizations
+    const religiousQueries = [
+      '"church auction" "travel packages" 2025 OR 2026',
+      '"synagogue fundraiser" "vacation" 2025 OR 2026',
+      '"mosque charity" "travel auction" 2025 OR 2026',
+      '"temple fundraising" "travel raffle" 2025 OR 2026',
+      '"parish auction" "vacation packages" 2025 OR 2026',
+      '"cathedral fundraiser" "travel" 2025 OR 2026',
+      '"christian charity" "travel auction" 2025 OR 2026',
+      '"buddhist temple" "travel raffle" 2025 OR 2026',
+      '"hindu temple" "charity auction" 2025 OR 2026',
+      '"faith community" "travel fundraiser" 2025 OR 2026'
+    ];
+
+    // Strategy 7: Healthcare organizations
+    const healthcareQueries = [
+      '"hospital foundation" "travel auction" 2025 OR 2026',
+      '"medical center" "charity raffle" 2025 OR 2026',
+      '"children\'s hospital" "travel packages" 2025 OR 2026',
+      '"cancer center" "vacation auction" 2025 OR 2026',
+      '"healthcare foundation" "travel raffle" 2025 OR 2026',
+      '"medical research" "charity auction" 2025 OR 2026',
+      '"health foundation" "travel fundraiser" 2025 OR 2026',
+      '"clinic foundation" "vacation raffle" 2025 OR 2026',
+      '"nursing home" "charity auction" 2025 OR 2026',
+      '"hospice foundation" "travel packages" 2025 OR 2026'
+    ];
+
+    // Strategy 8: Arts and culture
+    const artsQueries = [
+      '"art museum" "travel auction" 2025 OR 2026',
+      '"symphony orchestra" "vacation raffle" 2025 OR 2026',
+      '"theater company" "travel packages" 2025 OR 2026',
+      '"dance company" "charity auction" 2025 OR 2026',
+      '"music foundation" "travel raffle" 2025 OR 2026',
+      '"cultural center" "vacation auction" 2025 OR 2026',
+      '"opera company" "travel fundraiser" 2025 OR 2026',
+      '"arts council" "charity raffle" 2025 OR 2026',
+      '"gallery foundation" "travel packages" 2025 OR 2026',
+      '"performing arts" "vacation auction" 2025 OR 2026'
+    ];
+
+    // Strategy 9: Environmental organizations
+    const environmentalQueries = [
+      '"environmental nonprofit" "travel auction" 2025 OR 2026',
+      '"conservation foundation" "vacation raffle" 2025 OR 2026',
+      '"wildlife organization" "travel packages" 2025 OR 2026',
+      '"nature conservancy" "charity auction" 2025 OR 2026',
+      '"environmental foundation" "travel raffle" 2025 OR 2026',
+      '"green organization" "vacation auction" 2025 OR 2026',
+      '"sustainability nonprofit" "travel fundraiser" 2025 OR 2026',
+      '"climate foundation" "charity raffle" 2025 OR 2026',
+      '"eco organization" "travel packages" 2025 OR 2026',
+      '"environmental group" "vacation auction" 2025 OR 2026'
+    ];
+
+    // Strategy 10: Sports and recreation
+    const sportsQueries = [
+      '"youth sports" "travel auction" 2025 OR 2026',
+      '"athletic foundation" "vacation raffle" 2025 OR 2026',
+      '"sports club" "charity auction" 2025 OR 2026',
+      '"recreation center" "travel packages" 2025 OR 2026',
+      '"little league" "travel raffle" 2025 OR 2026',
+      '"soccer club" "vacation auction" 2025 OR 2026',
+      '"basketball foundation" "travel fundraiser" 2025 OR 2026',
+      '"swimming club" "charity raffle" 2025 OR 2026',
+      '"tennis club" "travel packages" 2025 OR 2026',
+      '"golf foundation" "vacation auction" 2025 OR 2026'
+    ];
+
     // Combine all strategies
     const allQueryStrings = [
       ...directEventQueries,
       ...organizationQueries,
       ...eventQueries,
       ...geographicQueries,
-      ...travelTypeQueries
+      ...travelTypeQueries,
+      ...religiousQueries,
+      ...healthcareQueries,
+      ...artsQueries,
+      ...environmentalQueries,
+      ...sportsQueries
     ];
 
     // Create SearchQuery objects

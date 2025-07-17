@@ -231,10 +231,10 @@ export class DateFilter {
    * Check if date is within configured event date range AND is in the future
    */
   isValidEventDate(date: Date): boolean {
-    // First check: Must be in the future (at least 1 month from now to allow for planning)
+    // First check: Must be in the future (at least 2 weeks from now to allow for planning)
     const today = new Date();
     const minimumFutureDate = new Date(today);
-    minimumFutureDate.setMonth(today.getMonth() + 1); // At least 1 month in the future
+    minimumFutureDate.setDate(today.getDate() + 14); // At least 2 weeks in the future
     
     if (date < minimumFutureDate) {
       console.log(`🗓️ Event date ${date.toDateString()} is in the past or too soon (minimum: ${minimumFutureDate.toDateString()})`);
