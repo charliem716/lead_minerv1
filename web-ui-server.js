@@ -5,6 +5,44 @@ const { spawn } = require('child_process');
 
 const PORT = process.env.PORT || 3000;
 
+// Pipeline execution tracking
+let pipelineStatus = {
+  isRunning: false,
+  currentPhase: 'idle',
+  progress: 0,
+  startTime: null,
+  logs: [],
+  stats: {
+    searchQueries: 0,
+    scrapedPages: 0,
+    classifiedItems: 0,
+    verifiedNonprofits: 0,
+    finalLeads: 0,
+    errors: 0
+  },
+  lastExecution: null
+};
+
+// Add log entry
+function addLog(level, message, phase = null) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    phase,
+    id: Date.now() + Math.random()
+  };
+  
+  pipelineStatus.logs.unshift(logEntry);
+  
+  // Keep only last 100 logs
+  if (pipelineStatus.logs.length > 100) {
+    pipelineStatus.logs = pipelineStatus.logs.slice(0, 100);
+  }
+  
+  console.log(`[${level.toUpperCase()}] ${phase ? `[${phase}] ` : ''}${message}`);
+}
+
 // Read current .env configuration
 function readEnvConfig() {
   try {
@@ -47,6 +85,302 @@ function updateEnvConfig(updates) {
     console.error('Error updating .env file:', error);
     return false;
   }
+}
+
+// Generate HTML for monitoring dashboard
+function generateMonitoringDashboard() {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lead-Miner Pipeline Monitor</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .header h1 { margin: 0; }
+        .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .status-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .status-card h3 { margin: 0 0 10px 0; color: #2c3e50; }
+        .status-value { font-size: 24px; font-weight: bold; margin: 10px 0; }
+        .status-running { color: #27ae60; }
+        .status-idle { color: #7f8c8d; }
+        .status-error { color: #e74c3c; }
+        .progress-bar { width: 100%; height: 20px; background: #ecf0f1; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .progress-fill { height: 100%; background: #3498db; transition: width 0.3s ease; }
+        .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .logs-section { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .log-entry { padding: 8px 12px; margin: 5px 0; border-radius: 4px; font-family: monospace; font-size: 12px; }
+        .log-info { background: #e8f5e8; border-left: 4px solid #27ae60; }
+        .log-error { background: #fdf2f2; border-left: 4px solid #e74c3c; }
+        .log-warn { background: #fff8e1; border-left: 4px solid #f39c12; }
+        .log-debug { background: #f8f9fa; border-left: 4px solid #6c757d; }
+        .controls { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .btn { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-secondary { background: #95a5a6; color: white; }
+        .btn:hover { opacity: 0.8; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .phase-indicator { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .phase-idle { background: #ecf0f1; color: #2c3e50; }
+        .phase-running { background: #3498db; color: white; }
+        .phase-complete { background: #27ae60; color: white; }
+        .auto-refresh { color: #7f8c8d; font-size: 12px; margin-top: 10px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 15px 0; }
+        .stat-item { text-align: center; padding: 10px; background: #f8f9fa; border-radius: 4px; }
+        .stat-number { font-size: 20px; font-weight: bold; color: #2c3e50; }
+        .stat-label { font-size: 12px; color: #7f8c8d; }
+        .log-timestamp { color: #7f8c8d; font-size: 10px; }
+        .log-phase { color: #3498db; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Lead-Miner Pipeline Monitor</h1>
+            <p>Real-time monitoring of lead generation pipeline execution</p>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-success" onclick="startPipeline()" id="startBtn">▶️ Start Pipeline</button>
+            <button class="btn btn-danger" onclick="stopPipeline()" id="stopBtn" disabled>⏹️ Stop Pipeline</button>
+            <button class="btn btn-secondary" onclick="clearLogs()">🗑️ Clear Logs</button>
+            <button class="btn btn-primary" onclick="refreshStatus()">🔄 Refresh</button>
+            <button class="btn btn-secondary" onclick="window.location.href='/config'">⚙️ Configuration</button>
+        </div>
+
+        <div class="status-grid">
+            <div class="status-card">
+                <h3>Pipeline Status</h3>
+                <div class="status-value" id="pipelineStatus">Loading...</div>
+                <div class="phase-indicator" id="currentPhase">idle</div>
+            </div>
+            <div class="status-card">
+                <h3>Progress</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+                <div id="progressText">0%</div>
+            </div>
+            <div class="status-card">
+                <h3>Execution Time</h3>
+                <div class="status-value" id="executionTime">-</div>
+            </div>
+            <div class="status-card">
+                <h3>Last Run</h3>
+                <div class="status-value" id="lastExecution">Never</div>
+            </div>
+        </div>
+
+        <div class="two-column">
+            <div class="logs-section">
+                <h3>📋 Pipeline Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-number" id="searchQueries">0</div>
+                        <div class="stat-label">Search Queries</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="scrapedPages">0</div>
+                        <div class="stat-label">Scraped Pages</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="classifiedItems">0</div>
+                        <div class="stat-label">Classified Items</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="verifiedNonprofits">0</div>
+                        <div class="stat-label">Verified Nonprofits</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="finalLeads">0</div>
+                        <div class="stat-label">Final Leads</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="errors">0</div>
+                        <div class="stat-label">Errors</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="logs-section">
+                <h3>📊 Real-time Logs</h3>
+                <div id="logContainer" style="height: 400px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                    <div class="log-entry log-info">Pipeline monitoring initialized</div>
+                </div>
+                <div class="auto-refresh">Auto-refreshing every 2 seconds</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let refreshInterval;
+        let isRefreshing = false;
+
+        // Start auto-refresh
+        function startAutoRefresh() {
+            if (refreshInterval) clearInterval(refreshInterval);
+            refreshInterval = setInterval(refreshStatus, 2000);
+        }
+
+        // Stop auto-refresh
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+        }
+
+        // Refresh status
+        async function refreshStatus() {
+            if (isRefreshing) return;
+            isRefreshing = true;
+
+            try {
+                const response = await fetch('/pipeline-status');
+                const data = await response.json();
+                updateUI(data);
+            } catch (error) {
+                console.error('Error refreshing status:', error);
+            } finally {
+                isRefreshing = false;
+            }
+        }
+
+        // Update UI with status data
+        function updateUI(data) {
+            // Update status
+            const statusElement = document.getElementById('pipelineStatus');
+            const phaseElement = document.getElementById('currentPhase');
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+
+            if (data.isRunning) {
+                statusElement.textContent = 'Running';
+                statusElement.className = 'status-value status-running';
+                phaseElement.textContent = data.currentPhase;
+                phaseElement.className = 'phase-indicator phase-running';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            } else {
+                statusElement.textContent = 'Idle';
+                statusElement.className = 'status-value status-idle';
+                phaseElement.textContent = 'idle';
+                phaseElement.className = 'phase-indicator phase-idle';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+
+            // Update progress
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const progress = Math.round(data.progress * 100);
+            progressFill.style.width = progress + '%';
+            progressText.textContent = progress + '%';
+
+            // Update execution time
+            const executionTime = document.getElementById('executionTime');
+            if (data.startTime) {
+                const elapsed = Math.floor((Date.now() - new Date(data.startTime).getTime()) / 1000);
+                executionTime.textContent = formatTime(elapsed);
+            } else {
+                executionTime.textContent = '-';
+            }
+
+            // Update last execution
+            const lastExecution = document.getElementById('lastExecution');
+            if (data.lastExecution) {
+                lastExecution.textContent = new Date(data.lastExecution).toLocaleString();
+            }
+
+            // Update stats
+            document.getElementById('searchQueries').textContent = data.stats.searchQueries;
+            document.getElementById('scrapedPages').textContent = data.stats.scrapedPages;
+            document.getElementById('classifiedItems').textContent = data.stats.classifiedItems;
+            document.getElementById('verifiedNonprofits').textContent = data.stats.verifiedNonprofits;
+            document.getElementById('finalLeads').textContent = data.stats.finalLeads;
+            document.getElementById('errors').textContent = data.stats.errors;
+
+            // Update logs
+            updateLogs(data.logs);
+        }
+
+        // Update logs display
+        function updateLogs(logs) {
+            const logContainer = document.getElementById('logContainer');
+            const shouldScrollToBottom = logContainer.scrollTop + logContainer.clientHeight >= logContainer.scrollHeight - 10;
+
+            logContainer.innerHTML = logs.map(log => {
+                const logClass = 'log-' + log.level;
+                const timestamp = new Date(log.timestamp).toLocaleTimeString();
+                const phase = log.phase ? '<span class="log-phase">[' + log.phase + ']</span> ' : '';
+                return '<div class="log-entry ' + logClass + '">' +
+                       '<span class="log-timestamp">' + timestamp + '</span> ' +
+                       phase + log.message + '</div>';
+            }).join('');
+
+            if (shouldScrollToBottom) {
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+        }
+
+        // Format time in seconds to readable format
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return mins > 0 ? mins + 'm ' + secs + 's' : secs + 's';
+        }
+
+        // Start pipeline
+        async function startPipeline() {
+            try {
+                const response = await fetch('/run', { method: 'POST' });
+                const result = await response.json();
+                if (result.status === 'started') {
+                    refreshStatus();
+                }
+            } catch (error) {
+                alert('Error starting pipeline: ' + error.message);
+            }
+        }
+
+        // Stop pipeline (placeholder)
+        async function stopPipeline() {
+            alert('Pipeline stopping not implemented yet');
+        }
+
+        // Clear logs
+        async function clearLogs() {
+            try {
+                await fetch('/clear-logs', { method: 'POST' });
+                refreshStatus();
+            } catch (error) {
+                alert('Error clearing logs: ' + error.message);
+            }
+        }
+
+        // Manual refresh
+        function refreshStatusManual() {
+            refreshStatus();
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshStatus();
+            startAutoRefresh();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            stopAutoRefresh();
+        });
+    </script>
+</body>
+</html>`;
 }
 
 // Generate HTML for configuration UI
@@ -293,7 +627,13 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
-  if (req.url === '/' || req.url === '/config') {
+  if (req.url === '/') {
+    // Main dashboard - monitoring
+    res.setHeader('Content-Type', 'text/html');
+    res.statusCode = 200;
+    res.end(generateMonitoringDashboard());
+    
+  } else if (req.url === '/config') {
     // Configuration UI
     res.setHeader('Content-Type', 'text/html');
     res.statusCode = 200;
@@ -341,18 +681,120 @@ const server = http.createServer((req, res) => {
       config: readEnvConfig()
     }));
     
+  } else if (req.url === '/pipeline-status') {
+    // Pipeline status endpoint
+    res.setHeader('Content-Type', 'application/json');
+    res.statusCode = 200;
+    res.end(JSON.stringify(pipelineStatus));
+    
+  } else if (req.url === '/clear-logs' && req.method === 'POST') {
+    // Clear logs endpoint
+    pipelineStatus.logs = [];
+    addLog('info', 'Logs cleared by user');
+    res.setHeader('Content-Type', 'application/json');
+    res.statusCode = 200;
+    res.end(JSON.stringify({ success: true }));
+    
   } else if (req.url === '/run' && req.method === 'POST') {
     // Run pipeline
+    if (pipelineStatus.isRunning) {
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 400;
+      res.end(JSON.stringify({
+        status: 'error',
+        message: 'Pipeline is already running'
+      }));
+      return;
+    }
+    
+    // Update pipeline status
+    pipelineStatus.isRunning = true;
+    pipelineStatus.currentPhase = 'starting';
+    pipelineStatus.progress = 0;
+    pipelineStatus.startTime = new Date().toISOString();
+    pipelineStatus.stats = {
+      searchQueries: 0,
+      scrapedPages: 0,
+      classifiedItems: 0,
+      verifiedNonprofits: 0,
+      finalLeads: 0,
+      errors: 0
+    };
+    
+    addLog('info', 'Pipeline execution started', 'system');
+    
     const child = spawn('node', ['dist/production-app.js', '--once'], {
       cwd: '/opt/leadminer',
       stdio: 'pipe'
     });
     
     let output = '';
-    child.stdout.on('data', (data) => output += data.toString());
-    child.stderr.on('data', (data) => output += data.toString());
+    
+    // Monitor output for progress updates
+    child.stdout.on('data', (data) => {
+      const dataStr = data.toString();
+      output += dataStr;
+      
+      // Parse progress from output
+      if (dataStr.includes('Phase 1:')) {
+        pipelineStatus.currentPhase = 'search-queries';
+        pipelineStatus.progress = 0.2;
+        addLog('info', 'Generating search queries', 'search');
+      } else if (dataStr.includes('Phase 2:')) {
+        pipelineStatus.currentPhase = 'scraping';
+        pipelineStatus.progress = 0.4;
+        addLog('info', 'Scraping web content', 'scraping');
+      } else if (dataStr.includes('Phase 3:')) {
+        pipelineStatus.currentPhase = 'classification';
+        pipelineStatus.progress = 0.6;
+        addLog('info', 'Classifying content', 'classification');
+      } else if (dataStr.includes('Phase 4:')) {
+        pipelineStatus.currentPhase = 'final-leads';
+        pipelineStatus.progress = 0.8;
+        addLog('info', 'Creating final leads', 'leads');
+      }
+      
+      // Extract stats from output
+      const queryMatch = dataStr.match(/Generated (\d+) search queries/);
+      if (queryMatch) {
+        pipelineStatus.stats.searchQueries = parseInt(queryMatch[1]);
+      }
+      
+      const scrapedMatch = dataStr.match(/Scraped (\d+) pages/);
+      if (scrapedMatch) {
+        pipelineStatus.stats.scrapedPages = parseInt(scrapedMatch[1]);
+      }
+      
+      const classifiedMatch = dataStr.match(/Classified (\d+) items/);
+      if (classifiedMatch) {
+        pipelineStatus.stats.classifiedItems = parseInt(classifiedMatch[1]);
+      }
+      
+      const leadsMatch = dataStr.match(/Created (\d+) final leads/);
+      if (leadsMatch) {
+        pipelineStatus.stats.finalLeads = parseInt(leadsMatch[1]);
+      }
+    });
+    
+    child.stderr.on('data', (data) => {
+      const dataStr = data.toString();
+      output += dataStr;
+      addLog('error', dataStr.trim(), pipelineStatus.currentPhase);
+      pipelineStatus.stats.errors++;
+    });
     
     child.on('close', (code) => {
+      pipelineStatus.isRunning = false;
+      pipelineStatus.progress = 1.0;
+      pipelineStatus.currentPhase = 'complete';
+      pipelineStatus.lastExecution = new Date().toISOString();
+      
+      if (code === 0) {
+        addLog('info', 'Pipeline execution completed successfully', 'system');
+      } else {
+        addLog('error', `Pipeline execution failed with code ${code}`, 'system');
+      }
+      
       res.setHeader('Content-Type', 'application/json');
       res.statusCode = 200;
       res.end(JSON.stringify({
@@ -375,6 +817,9 @@ server.listen(PORT, () => {
   console.log(`📊 Dashboard: http://localhost:${PORT}/`);
   console.log(`🔧 Configuration: http://localhost:${PORT}/config`);
   console.log(`📡 Health check: http://localhost:${PORT}/health`);
+  
+  // Initialize pipeline status
+  addLog('info', 'Lead-Miner monitoring system started');
 });
 
 // Graceful shutdown
