@@ -18,116 +18,108 @@ export class SearchAgent {
   }
 
   /**
-   * Generate search queries based on configuration with enhanced exclusion patterns
+   * Generate diverse search queries with multiple strategies to maximize results
    */
   generateSearchQueries(): SearchQuery[] {
     const queries: SearchQuery[] = [];
-    const baseKeywords = [
-      // Educational institutions (prioritized)
-      '"school travel auction" "fundraiser"',
-      '"university travel raffle" "donate"',
-      '"college vacation auction" "support"',
-      '"pta travel packages" "fundraising"',
-      '"student travel auction" "501c3"',
-      '"alumni travel raffle" "mission"',
-      
-      // General nonprofit travel fundraising
-      '"nonprofit travel packages" "donate"',
-      '"charity vacation auction" "support our"',
-      '"foundation travel raffle" "fundraising"',
-      '"travel packages fundraiser" "501c3"',
-      '"vacation donations" "nonprofit"',
-      
-      // Event-specific terms
-      '"silent auction travel" "charity"',
-      '"gala vacation packages" "fundraiser"',
-      '"annual travel auction" "donate"'
+    
+    // Strategy 1: Direct nonprofit event searches (most effective)
+    const directEventQueries = [
+      'site:org "travel auction" 2025 OR 2026',
+      'site:org "vacation raffle" 2025 OR 2026',
+      'site:org "silent auction" travel 2025 OR 2026',
+      'site:org "gala" "travel packages" 2025 OR 2026',
+      'site:edu "travel auction" fundraiser 2025 OR 2026',
+      'site:edu "vacation raffle" charity 2025 OR 2026',
+      '"school travel auction" 2025 OR 2026',
+      '"university travel raffle" 2025 OR 2026',
+      '"church travel auction" 2025 OR 2026',
+      '"nonprofit travel fundraiser" 2025 OR 2026'
     ];
 
-    // Generate queries with date range filtering
-    for (const month of config.dateRanges.searchMonths) {
-      for (const baseKeyword of baseKeywords) {
-        const query = this.buildSearchQuery(baseKeyword, month);
-        queries.push({
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          query,
-          dateRange: month,
-          geographic: 'US',
-          createdAt: new Date(),
-          resultsCount: 0,
-          status: 'pending'
-        });
-      }
-    }
+    // Strategy 2: Specific organization types
+    const organizationQueries = [
+      '"501c3" "travel auction" 2025 OR 2026',
+      '"501(c)(3)" "vacation raffle" 2025 OR 2026',
+      '"charity" "travel packages" auction 2025 OR 2026',
+      '"foundation" "travel raffle" 2025 OR 2026',
+      '"museum" "travel auction" 2025 OR 2026',
+      '"hospital foundation" "travel" auction 2025 OR 2026',
+      '"animal shelter" "travel auction" 2025 OR 2026',
+      '"food bank" "travel raffle" 2025 OR 2026',
+      '"community center" "travel auction" 2025 OR 2026',
+      '"youth organization" "travel raffle" 2025 OR 2026'
+    ];
 
-    // Generate queries with quarterly filtering
-    for (const quarter of config.dateRanges.searchQuarters) {
-      for (const baseKeyword of baseKeywords) {
-        const query = this.buildSearchQuery(baseKeyword, quarter);
-        queries.push({
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          query,
-          dateRange: quarter,
-          geographic: 'US',
-          createdAt: new Date(),
-          resultsCount: 0,
-          status: 'pending'
-        });
-      }
-    }
+    // Strategy 3: Event-specific searches
+    const eventQueries = [
+      '"annual gala" "travel packages" 2025 OR 2026',
+      '"benefit dinner" "travel auction" 2025 OR 2026',
+      '"fundraising event" "vacation raffle" 2025 OR 2026',
+      '"charity ball" "travel packages" 2025 OR 2026',
+      '"auction night" "travel" 2025 OR 2026',
+      '"silent auction" "cruise" "vacation" 2025 OR 2026',
+      '"live auction" "travel packages" 2025 OR 2026',
+      '"raffle prizes" "travel" 2025 OR 2026',
+      '"wine auction" "travel packages" 2025 OR 2026',
+      '"art auction" "vacation" 2025 OR 2026'
+    ];
 
-    return queries;
+    // Strategy 4: Geographic + event searches
+    const geographicQueries = [
+      '"California nonprofit" "travel auction" 2025 OR 2026',
+      '"New York charity" "travel raffle" 2025 OR 2026',
+      '"Texas foundation" "travel packages" 2025 OR 2026',
+      '"Florida nonprofit" "vacation auction" 2025 OR 2026',
+      '"Chicago charity" "travel raffle" 2025 OR 2026',
+      '"Los Angeles nonprofit" "travel auction" 2025 OR 2026',
+      '"Boston charity" "vacation raffle" 2025 OR 2026',
+      '"Seattle nonprofit" "travel packages" 2025 OR 2026',
+      '"Denver charity" "travel auction" 2025 OR 2026',
+      '"Atlanta nonprofit" "vacation raffle" 2025 OR 2026'
+    ];
+
+    // Strategy 5: Specific travel types
+    const travelTypeQueries = [
+      '"cruise auction" nonprofit 2025 OR 2026',
+      '"vacation rental" charity auction 2025 OR 2026',
+      '"resort package" nonprofit raffle 2025 OR 2026',
+      '"airline tickets" charity auction 2025 OR 2026',
+      '"hotel stay" nonprofit raffle 2025 OR 2026',
+      '"Disney trip" charity auction 2025 OR 2026',
+      '"European vacation" nonprofit raffle 2025 OR 2026',
+      '"Hawaii trip" charity auction 2025 OR 2026',
+      '"ski vacation" nonprofit raffle 2025 OR 2026',
+      '"beach vacation" charity auction 2025 OR 2026'
+    ];
+
+    // Combine all strategies
+    const allQueryStrings = [
+      ...directEventQueries,
+      ...organizationQueries,
+      ...eventQueries,
+      ...geographicQueries,
+      ...travelTypeQueries
+    ];
+
+    // Create SearchQuery objects
+    allQueryStrings.forEach((queryString, index) => {
+      queries.push({
+        id: `diverse-${Date.now()}-${index}`,
+        query: queryString,
+        dateRange: 'future',
+        geographic: 'US',
+        createdAt: new Date(),
+        resultsCount: 0,
+        status: 'pending'
+      });
+    });
+
+    console.log(`✅ Generated ${queries.length} diverse search queries using multiple strategies`);
+    return queries.slice(0, this.dailyLimit); // Respect daily limit
   }
 
-  /**
-   * Build search query with geographic and date filtering
-   */
-  private buildSearchQuery(baseKeyword: string, dateRange: string): string {
-    let query = baseKeyword;
 
-    // Add date range filtering
-    if (dateRange.startsWith('Q')) {
-      // Quarterly filtering
-      const yearQuarter = `2025 ${dateRange}`;
-      query += ` "${yearQuarter}" OR "${dateRange} 2025"`;
-    } else {
-      // Monthly filtering
-      query += ` "${dateRange} 2025" OR "${dateRange}"`;
-    }
-
-    // Add geographic filtering
-    if (config.geographic.states.length > 0) {
-      const stateFilters = config.geographic.states.map(state => `"${state}"`).join(' OR ');
-      query += ` (${stateFilters})`;
-    } else {
-      query += ' site:org OR site:nonprofit OR site:charity';
-    }
-
-    // Add event date range filtering
-    if (config.dateRanges.eventDateRange) {
-      const [startDate, endDate] = config.dateRanges.eventDateRange.split(' to ');
-      query += ` after:${startDate} before:${endDate}`;
-    }
-
-    // Exclude B2B service providers and false positive domains
-    query += ' -site:facebook.com -site:twitter.com -site:instagram.com -site:linkedin.com';
-    query += ' -site:winspire.com -site:biddingforgood.com -site:auctionpackages.com -site:charitybuzz.com';
-    query += ' -site:32auctions.com -site:givesmart.com -site:handbid.com';
-    
-    // Exclude B2B service language
-    query += ' -"we provide" -"our services" -"contact for quote" -"packages starting"';
-    query += ' -"auction items for sale" -"we donate" -"fundraising packages available"';
-    query += ' -"call to book" -"pricing" -"vendor" -"supplier"';
-    
-    // Exclude political and government
-    query += ' -"campaign" -"political" -"government" -"municipal" -"federal"';
-    query += ' -"state agency" -"department of" -"city of" -"county of"';
-    
-    // Exclude for-profit indicators
-    query += ' -"corporation" -"llc" -"inc." -"shareholders" -"investors"';
-
-    return query;
-  }
 
   /**
    * Execute search query via SerpAPI with retry logic
