@@ -219,10 +219,10 @@ Return true if human review is recommended.
         },
         dateRelevance: primaryResult.dateRelevance || false,
         geographicRelevance: primaryResult.geographicRelevance || false,
-        selfConsistencyScore: consistencyScore,
-        reviewFlag,
-        modelUsed: 'gpt-4o-mini',
-        classifiedAt: new Date()
+                  selfConsistencyScore: consistencyScore,
+          reviewFlag,
+          modelUsed: 'gpt-4o-mini',
+          classifiedAt: new Date()
       };
       
       // Apply business model filter - exclude B2B services
@@ -249,7 +249,7 @@ Return true if human review is recommended.
     const analysisText = this.prepareContentForAnalysis(content);
     
     const response = await this.openaiClient.chat.completions.create({
-      model: 'gpt-4o-mini', // Using reasoning model for complex classification
+                model: 'gpt-4o-mini', // Using reasoning model for complex classification
       messages: [{
         role: 'system',
         content: this.classificationPrompts.primary + analysisText
@@ -309,7 +309,7 @@ Return true if human review is recommended.
     const analysisText = this.prepareContentForAnalysis(content);
     
     const response = await this.openaiClient.chat.completions.create({
-      model: 'gpt-4o-mini', // Using reasoning model for consistency analysis
+                model: 'gpt-4o-mini', // Using reasoning model for consistency analysis
       messages: [{
         role: 'system',
         content: this.classificationPrompts.consistency + analysisText + '\n\nOriginal Classification: ' + JSON.stringify(primaryResult)
@@ -538,10 +538,10 @@ ORG INFO: ${JSON.stringify(content.organizationInfo)}
       reasoning: `Classification failed: ${error.message}`,
       keywordMatches: { auction: [], travel: [], nonprofit: [], b2bExclusions: [], nonprofitIndicators: [] },
       dateRelevance: false,
-      geographicRelevance: false,
-      selfConsistencyScore: 0,
-      modelUsed: 'gpt-4o-mini',
-      classifiedAt: new Date(),
+              geographicRelevance: false,
+        selfConsistencyScore: 0,
+        modelUsed: 'gpt-4o-mini',
+        classifiedAt: new Date(),
       reviewFlag: true,
       error: `Classification failed: ${error.message}`
     };

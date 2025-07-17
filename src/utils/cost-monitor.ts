@@ -32,6 +32,14 @@ interface BudgetStatus {
  */
 const SERVICE_COSTS = {
   openai: {
+    'gpt-4.1-mini': {
+      input: 0.0000015, // Estimated similar to gpt-4o-mini
+      output: 0.000006  // Estimated similar to gpt-4o-mini
+    },
+    'o4-mini': {
+      input: 0.00000116, // $1.16 per 1M tokens
+      output: 0.00000462  // $4.62 per 1M tokens
+    },
     'gpt-4o-mini': {
       input: 0.00000015, // $0.00015 per 1K tokens
       output: 0.0000006  // $0.0006 per 1K tokens

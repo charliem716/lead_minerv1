@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer';
+import puppeteer, { Browser, Page } from 'puppeteer';
 import * as cheerio from 'cheerio';
 import { config } from '../config';
 import { ScrapedContent } from '../types';
@@ -17,18 +17,27 @@ interface RobotsRules {
  * Implements rate limiting and proper error handling
  */
 export class ScraperAgent {
-  private browser: any = null;
+  private browser: Browser | null = null;
   private requestCount: number = 0;
   private requestTimestamps: number[] = [];
   private robotsCache: Map<string, RobotsRules> = new Map();
+  private isInitializing = false;
 
-  constructor() {}
+  constructor() {
+    console.log('🕷️ ScraperAgent initialized with real Puppeteer browser');
+  }
 
   /**
-   * Initialize the browser instance
+   * Initialize the browser instance with proper error handling
    */
   async initialize(): Promise<void> {
-    if (!this.browser) {
+    if (this.browser || this.isInitializing) {
+      return;
+    }
+    
+    this.isInitializing = true;
+    
+    try {
       this.browser = await puppeteer.launch({
         headless: 'new',
         args: [
@@ -41,11 +50,19 @@ export class ScraperAgent {
           '--no-zygote',
           '--disable-background-timer-throttling',
           '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding'
+          '--disable-renderer-backgrounding',
+          '--disable-web-security',
+          '--disable-features=TranslateUI'
         ]
       });
       
-      console.log('Puppeteer browser initialized');
+      console.log('🌐 Puppeteer browser initialized successfully');
+    } catch (error) {
+      console.error('❌ Failed to initialize Puppeteer browser:', error);
+      this.browser = null;
+      throw new Error(`Browser initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      this.isInitializing = false;
     }
   }
 
@@ -54,9 +71,14 @@ export class ScraperAgent {
    */
   async close(): Promise<void> {
     if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
-      console.log('Puppeteer browser closed');
+      try {
+        await this.browser.close();
+        console.log('🔒 Puppeteer browser closed');
+      } catch (error) {
+        console.warn('⚠️ Error closing browser:', error);
+      } finally {
+        this.browser = null;
+      }
     }
   }
 
@@ -70,15 +92,19 @@ export class ScraperAgent {
       
       // Check cache first
       if (this.robotsCache.has(robotsKey)) {
-        const robotsRules = this.robotsCache.get(robotsKey);
+        const robotsRules = this.robotsCache.get(robotsKey)!;
         return this.isAllowedByRobots(url, robotsRules);
       }
 
       // Fetch robots.txt
       const robotsUrl = `${baseUrl}/robots.txt`;
-      const response = await fetch(robotsUrl);
+      const response = await fetch(robotsUrl, { 
+        headers: {
+          'User-Agent': 'Lead-Miner Bot 1.0 (respectful nonprofit crawler)'
+        }
+      });
       
-      let robotsRules = { userAgent: '*', disallow: [], allow: [] };
+      let robotsRules: RobotsRules = { userAgent: '*', disallow: [], allow: [] };
       
       if (response.ok) {
         const robotsText = await response.text();
@@ -90,7 +116,7 @@ export class ScraperAgent {
       
       return this.isAllowedByRobots(url, robotsRules);
     } catch (error) {
-      console.warn(`Failed to check robots.txt for ${url}:`, error);
+      console.warn(`⚠️ Failed to check robots.txt for ${url}:`, error);
       // If we can't check robots.txt, assume it's allowed
       return true;
     }
@@ -99,124 +125,112 @@ export class ScraperAgent {
   /**
    * Parse robots.txt content
    */
-  private parseRobotsTxt(content: string): any {
-    const lines = content.split('\n');
-    const rules = { userAgent: '*', disallow: [] as string[], allow: [] as string[], crawlDelay: 0 };
-    let isOurUserAgent = true;
-
+  private parseRobotsTxt(robotsText: string): RobotsRules {
+    const rules: RobotsRules = { userAgent: '*', disallow: [], allow: [] };
+    const lines = robotsText.split('\n');
+    
     for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (trimmedLine.startsWith('#') || trimmedLine === '') {
-        continue;
-      }
-
-      if (trimmedLine.startsWith('User-agent:')) {
-        const userAgent = trimmedLine.substring(11).trim();
-        isOurUserAgent = userAgent === '*' || userAgent === 'LeadMinerBot';
-      } else if (isOurUserAgent && trimmedLine.startsWith('Disallow:')) {
-        const path = trimmedLine.substring(9).trim();
-        if (path) {
-          rules.disallow.push(path);
-        }
-      } else if (isOurUserAgent && trimmedLine.startsWith('Allow:')) {
-        const path = trimmedLine.substring(6).trim();
-        if (path) {
-          rules.allow.push(path);
-        }
-      } else if (isOurUserAgent && trimmedLine.startsWith('Crawl-delay:')) {
-        const delay = parseInt(trimmedLine.substring(12).trim(), 10);
-        if (!isNaN(delay)) {
-          rules.crawlDelay = delay;
-        }
+      const trimmed = line.trim().toLowerCase();
+      if (trimmed.startsWith('disallow:')) {
+        const path = trimmed.substring(9).trim();
+        if (path) rules.disallow.push(path);
+      } else if (trimmed.startsWith('allow:')) {
+        const path = trimmed.substring(6).trim();
+        if (path) rules.allow.push(path);
+      } else if (trimmed.startsWith('crawl-delay:')) {
+        const delay = parseInt(trimmed.substring(12).trim());
+        if (!isNaN(delay)) rules.crawlDelay = delay;
       }
     }
-
+    
     return rules;
   }
 
   /**
    * Check if URL is allowed by robots.txt rules
    */
-  private isAllowedByRobots(url: string, rules: any): boolean {
-    const path = new URL(url).pathname;
+  private isAllowedByRobots(url: string, rules: RobotsRules | undefined): boolean {
+    if (!rules) return true;
+    
+    const urlPath = new URL(url).pathname;
     
     // Check explicit allows first
-    for (const allowRule of rules.allow) {
-      if (allowRule === '/' || path.startsWith(allowRule)) {
-        return true;
-      }
+    for (const allowPath of rules.allow) {
+      if (urlPath.startsWith(allowPath)) return true;
     }
     
     // Check disallows
-    for (const disallowRule of rules.disallow) {
-      if (disallowRule === '/' || path.startsWith(disallowRule)) {
-        return false;
-      }
+    for (const disallowPath of rules.disallow) {
+      if (disallowPath === '*' || urlPath.startsWith(disallowPath)) return false;
     }
     
     return true;
   }
 
   /**
-   * Implement rate limiting
+   * Apply rate limiting
    */
   private async rateLimit(): Promise<void> {
     const now = Date.now();
-    const oneMinuteAgo = now - 60000;
+    const maxRequestsPerMinute = config.limits.maxRequestsPerMinute || 30;
+    const windowMs = 60000; // 1 minute
     
-    // Clean old timestamps
-    this.requestTimestamps = this.requestTimestamps.filter(ts => ts > oneMinuteAgo);
+    // Remove old timestamps
+    this.requestTimestamps = this.requestTimestamps.filter(timestamp => 
+      now - timestamp < windowMs
+    );
     
-    // Check if we're exceeding rate limit
-    if (this.requestTimestamps.length >= config.limits.maxRequestsPerMinute) {
+    // Check if we're over the limit
+    if (this.requestTimestamps.length >= maxRequestsPerMinute && this.requestTimestamps.length > 0) {
       const oldestRequest = this.requestTimestamps[0];
-      if (oldestRequest) {
-        const waitTime = oneMinuteAgo - oldestRequest + 1000; // Add 1 second buffer
-        
+      if (oldestRequest !== undefined) {
+        const waitTime = windowMs - (now - oldestRequest);
         if (waitTime > 0) {
-          console.log(`Rate limiting: waiting ${waitTime}ms`);
+          console.log(`⏱️ Rate limiting: waiting ${waitTime}ms`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }
     }
     
-    // Add current request timestamp
     this.requestTimestamps.push(now);
-    
-    // Add delay between requests
-    await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
   }
 
   /**
-   * Scrape content from a URL
+   * Scrape content from a URL with enhanced error handling
    */
-  async scrapeUrl(url: string): Promise<ScrapedContent | null> {
+  async scrapeUrl(url: string): Promise<ScrapedContent> {
+    let page: Page | null = null;
+    
     try {
       await this.initialize();
       
+      if (!this.browser) {
+        throw new Error('Browser failed to initialize');
+      }
+
       // Check robots.txt
       const isAllowed = await this.checkRobotsTxt(url);
       if (!isAllowed) {
-        console.log(`Robots.txt disallows scraping: ${url}`);
-        return null;
+        console.log(`🚫 Robots.txt disallows scraping: ${url}`);
+        return this.createErrorResult(url, 'Disallowed by robots.txt', 403);
       }
       
       // Apply rate limiting
       await this.rateLimit();
       
-      const page = await this.browser!.newPage();
+      page = await this.browser.newPage();
       
-      // Set user agent
+      // Configure page
       await page.setUserAgent('Lead-Miner Bot 1.0 (respectful nonprofit crawler)');
-      
-      // Set viewport
       await page.setViewport({ width: 1920, height: 1080 });
       
-      // Navigate to URL with timeout
+      // Navigate to URL with proper error handling
       await page.goto(url, { 
         waitUntil: 'networkidle2', 
         timeout: 30000 
       });
+      
+      const statusCode = 200; // Will be caught in catch block if there's an error
       
       // Wait for content to load
       await page.waitForTimeout(2000);
@@ -252,34 +266,61 @@ export class ScraperAgent {
         organizationInfo,
         scrapedAt: new Date(),
         processingStatus: 'pending',
-        statusCode: 200
+        statusCode
       };
       
-      await page.close();
       this.requestCount++;
-      
-      console.log(`Successfully scraped: ${url}`);
+      console.log(`✅ Successfully scraped: ${url} (${cleanText.length} chars)`);
       return scrapedContent;
       
     } catch (error) {
-      console.error(`Failed to scrape ${url}:`, error);
+      console.error(`❌ Failed to scrape ${url}:`, error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      return {
-        id: `scraped_error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        url,
-        title: '',
-        content: '',
-        images: [],
-        rawHtml: '',
-        eventInfo: undefined,
-        contactInfo: undefined,
-        organizationInfo: undefined,
-        scrapedAt: new Date(),
-        processingStatus: 'pending' as const,
-        statusCode: errorMessage.includes('timeout') ? 408 : 500,
-        error: errorMessage
-      };
+      const statusCode = this.getErrorStatusCode(errorMessage);
+      
+      return this.createErrorResult(url, errorMessage, statusCode);
+    } finally {
+      if (page) {
+        try {
+          await page.close();
+        } catch (error) {
+          console.warn('⚠️ Error closing page:', error);
+        }
+      }
     }
+  }
+
+  /**
+   * Create error result for failed scraping attempts
+   */
+  private createErrorResult(url: string, errorMessage: string, statusCode: number): ScrapedContent {
+    return {
+      id: `scraped_error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      url,
+      title: '',
+      content: '',
+      images: [],
+      rawHtml: '',
+      eventInfo: undefined,
+      contactInfo: undefined,
+      organizationInfo: undefined,
+      scrapedAt: new Date(),
+      processingStatus: 'pending' as const,
+      statusCode,
+      error: errorMessage
+    };
+  }
+
+  /**
+   * Determine status code from error message
+   */
+  private getErrorStatusCode(errorMessage: string): number {
+    if (errorMessage.includes('timeout')) return 408;
+    if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) return 403;
+    if (errorMessage.includes('404') || errorMessage.includes('Not Found')) return 404;
+    if (errorMessage.includes('500') || errorMessage.includes('Internal Server Error')) return 500;
+    if (errorMessage.includes('robots.txt')) return 403;
+    return 500;
   }
 
   /**

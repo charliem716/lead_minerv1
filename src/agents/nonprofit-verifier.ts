@@ -72,6 +72,14 @@ export class NonprofitVerifier {
   }
 
   /**
+   * Simple interface for verifying nonprofit status by name and optional state
+   */
+  async verifyNonprofit(orgName: string, state?: string): Promise<NonprofitVerificationResult> {
+    console.log(`🔍 Verifying nonprofit: ${orgName}${state ? ` in ${state}` : ''}`);
+    return await this.verifyByName(orgName);
+  }
+
+  /**
    * Verify nonprofit status by EIN
    */
   async verifyByEIN(ein: string): Promise<NonprofitVerificationResult> {

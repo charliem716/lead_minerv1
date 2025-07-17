@@ -52,11 +52,11 @@ export interface ContactEnrichmentData {
 }
 
 /**
- * Enrichment Agent - Phase 4 Implementation
- * 
- * Enriches classified leads with:
- * 1. Contact information (emails, phones)
- * 2. LinkedIn organization data (staff size, industry)
+ * Enrichment Agent for Lead Miner
+ * Focuses on enriching leads with contact information and organizational details
+ * Uses real APIs instead of mock data:
+ * 1. Website scraping for contact information
+ * 2. OpenCorporates API for company details
  * 3. Social media links
  * 4. Additional organizational details
  */
@@ -64,8 +64,22 @@ export class EnrichmentAgent {
   private requestCount = 0;
   private lastRequestTime = Date.now();
   private readonly rateLimitDelay = 2000; // 2 seconds between requests
+  private context: AgentExecutionContext;
   
-  constructor(private context: AgentExecutionContext) {
+  constructor(context?: AgentExecutionContext) {
+    this.context = context || {
+      requestId: `req_${Date.now()}`,
+      sessionId: `enrichment_${Date.now()}`,
+      timestamp: new Date(),
+      budgetUsed: 0,
+      budgetRemaining: config.limits.budgetLimit || 50,
+      rateLimitStatus: {
+        openai: 0,
+        serpapi: 0,
+        google: 0
+      }
+    };
+    
     console.log('🔍 Enrichment Agent initialized with context:', this.context.sessionId);
   }
 
