@@ -322,23 +322,23 @@ export class PipelineOrchestrator {
   /**
    * Extract organization information from SerpAPI snippet
    */
-  private extractOrgInfoFromSnippet(snippet: string, title: string): any {
-    const fullText = `${title} ${snippet}`;
-    
-         // Look for organization indicators (not currently used but kept for future enhancement)
+     private extractOrgInfoFromSnippet(snippet: string, title: string): any {
+     // const fullText = `${title} ${snippet}`;
+     
+     // Look for organization indicators (not currently used but kept for future enhancement)
      // const orgKeywords = ['foundation', 'nonprofit', 'charity', 'organization', 'society', 'association'];
      // const matchedKeywords = orgKeywords.filter(keyword => 
      //   fullText.toLowerCase().includes(keyword)
      // );
-    
-    // Extract potential organization name from title
-    const orgName = title.split(' - ')[0] || title.split(' | ')[0] || title;
-    
-         return {
+     
+     // Extract potential organization name from title
+     const orgName = title.split(' - ')[0] || title.split(' | ')[0] || title;
+     
+     return {
        name: orgName,
        ein: undefined // Will be extracted during verification
      };
-  }
+   }
 
   /**
    * Extract location information from text
