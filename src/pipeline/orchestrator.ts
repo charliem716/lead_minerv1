@@ -322,7 +322,7 @@ export class PipelineOrchestrator {
   /**
    * Extract organization information from SerpAPI snippet
    */
-     private extractOrgInfoFromSnippet(snippet: string, title: string): any {
+     private extractOrgInfoFromSnippet(_snippet: string, title: string): any {
      // const fullText = `${title} ${snippet}`;
      
      // Look for organization indicators (not currently used but kept for future enhancement)
