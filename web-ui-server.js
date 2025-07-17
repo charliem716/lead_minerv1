@@ -431,7 +431,7 @@ function generateConfigUI() {
 
         <div class="stats">
             <div class="stat-card">
-                <div class="stat-number">${(config.SEARCH_STATES || '').split(',').filter(s => s.trim()).length}</div>
+                <div class="stat-number">${(config.TARGET_STATES || '').split(',').filter(s => s.trim()).length}</div>
                 <div class="stat-label">States Configured</div>
             </div>
             <div class="stat-card">
@@ -452,11 +452,11 @@ function generateConfigUI() {
             <div class="section">
                 <h3>🌍 Geographic Configuration</h3>
                 <div class="form-group">
-                    <label>Search States (Current: ${config.SEARCH_STATES || 'None'})</label>
+                    <label>Search States (Current: ${config.TARGET_STATES || 'None'})</label>
                     <div class="checkbox-group">
                         ${['CA', 'NY', 'TX', 'FL', 'WA', 'MA', 'PA', 'IL', 'OH', 'GA', 'CO', 'NC', 'AZ', 'TN', 'IN', 'MO', 'MD', 'WI', 'MN', 'LA'].map(state => `
                             <div class="checkbox-item">
-                                <input type="checkbox" id="state_${state}" name="states" value="${state}" ${(config.SEARCH_STATES || '').includes(state) ? 'checked' : ''}>
+                                <input type="checkbox" id="state_${state}" name="states" value="${state}" ${(config.TARGET_STATES || '').includes(state) ? 'checked' : ''}>
                                 <label for="state_${state}">${state}</label>
                             </div>
                         `).join('')}
@@ -548,7 +548,7 @@ function generateConfigUI() {
             const months = Array.from(document.querySelectorAll('input[name="months"]:checked')).map(cb => cb.value);
             const quarters = Array.from(document.querySelectorAll('input[name="quarters"]:checked')).map(cb => cb.value);
             
-            config.SEARCH_STATES = states.join(',');
+            config.TARGET_STATES = states.join(',');
             config.SEARCH_MONTHS = months.join(',');
             config.SEARCH_QUARTERS = quarters.join(',');
             
