@@ -265,7 +265,7 @@ export class PipelineOrchestrator {
           }
           
           // Rate limiting between queries
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Reduced from 2000ms
+          await new Promise(resolve => setTimeout(resolve, 500)); // Reduced to 500ms with retry logic
           
         } catch (error) {
           console.error(`❌ Search failed for query: ${query.query}`, error);

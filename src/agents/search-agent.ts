@@ -130,42 +130,62 @@ export class SearchAgent {
   }
 
   /**
-   * Execute search query via SerpAPI
+   * Execute search query via SerpAPI with retry logic
    */
   async executeSearch(searchQuery: SearchQuery): Promise<any[]> {
     if (this.requestCount >= this.dailyLimit) {
       throw new Error(`Daily search limit of ${this.dailyLimit} reached`);
     }
 
-    try {
-      console.log(`Executing search: ${searchQuery.query}`);
-      
-      const searchParams: SerpApiParams = {
-        q: searchQuery.query,
-        engine: 'google',
-        api_key: this.apiKey,
-        num: 10, // Limit results to manage costs
-        gl: 'us', // Geographic location
-        hl: 'en', // Language
-        safe: 'active'
-      };
+    const maxRetries = 3;
+    let lastError: any;
 
-      const response: SerpApiResponse = await getJson(searchParams);
-      this.requestCount++;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Executing search (attempt ${attempt}/${maxRetries}): ${searchQuery.query}`);
+        
+        const searchParams: SerpApiParams = {
+          q: searchQuery.query,
+          engine: 'google',
+          api_key: this.apiKey,
+          num: 10, // Limit results to manage costs
+          gl: 'us', // Geographic location
+          hl: 'en', // Language
+          safe: 'active'
+        };
 
-      // Update search query status
-      searchQuery.status = 'completed';
-      searchQuery.processedAt = new Date();
-      searchQuery.resultsCount = response.organic_results?.length || 0;
+        const response: SerpApiResponse = await Promise.race([
+          getJson(searchParams),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout after 30 seconds')), 30000)
+          )
+        ]) as SerpApiResponse;
 
-      console.log(`Search completed: ${searchQuery.resultsCount} results found`);
-      
-      return response.organic_results || [];
-    } catch (error) {
-      console.error('Search execution failed:', error);
-      searchQuery.status = 'failed';
-      throw error;
+        this.requestCount++;
+
+        // Update search query status
+        searchQuery.status = 'completed';
+        searchQuery.processedAt = new Date();
+        searchQuery.resultsCount = response.organic_results?.length || 0;
+
+        console.log(`✅ Search completed: ${searchQuery.resultsCount} results found`);
+        
+        return response.organic_results || [];
+      } catch (error) {
+        lastError = error;
+        console.error(`❌ Search attempt ${attempt} failed:`, error);
+        
+        if (attempt < maxRetries) {
+          const delay = attempt * 2000; // Exponential backoff: 2s, 4s, 6s
+          console.log(`⏳ Retrying in ${delay}ms...`);
+          await this.delay(delay);
+        }
+      }
     }
+
+    console.error(`❌ Search failed after ${maxRetries} attempts for query: ${searchQuery.query}`);
+    searchQuery.status = 'failed';
+    throw lastError;
   }
 
   /**
