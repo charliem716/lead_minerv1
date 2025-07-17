@@ -33,9 +33,9 @@ export const config: Config = {
   apis: {
     openai: {
       apiKey: process.env['OPENAI_API_KEY'] || '',
-      model: process.env['OPENAI_MODEL'] || 'o4-mini', // Default reasoning model
-      simpleModel: process.env['OPENAI_SIMPLE_MODEL'] || 'gpt-4.1-mini', // No-reasoning model
-      visionModel: process.env['OPENAI_VISION_MODEL'] || 'gpt-4.1-mini' // Image analysis model
+      model: process.env['OPENAI_MODEL'] || 'gpt-4o-mini', // Default reasoning model
+              simpleModel: process.env['OPENAI_SIMPLE_MODEL'] || 'gpt-4o-mini', // No-reasoning model
+        visionModel: process.env['OPENAI_VISION_MODEL'] || 'gpt-4o-mini' // Image analysis model
     },
     serpapi: {
       apiKey: process.env['SERPAPI_KEY'] || ''

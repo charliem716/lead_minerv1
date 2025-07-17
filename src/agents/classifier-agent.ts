@@ -221,7 +221,7 @@ Return true if human review is recommended.
         geographicRelevance: primaryResult.geographicRelevance || false,
         selfConsistencyScore: consistencyScore,
         reviewFlag,
-        modelUsed: 'o4-mini',
+        modelUsed: 'gpt-4o-mini',
         classifiedAt: new Date()
       };
       
@@ -249,7 +249,7 @@ Return true if human review is recommended.
     const analysisText = this.prepareContentForAnalysis(content);
     
     const response = await this.openaiClient.chat.completions.create({
-      model: 'o4-mini', // Using reasoning model for complex classification
+      model: 'gpt-4o-mini', // Using reasoning model for complex classification
       messages: [{
         role: 'system',
         content: this.classificationPrompts.primary + analysisText
@@ -309,7 +309,7 @@ Return true if human review is recommended.
     const analysisText = this.prepareContentForAnalysis(content);
     
     const response = await this.openaiClient.chat.completions.create({
-      model: 'o4-mini', // Using reasoning model for consistency analysis
+      model: 'gpt-4o-mini', // Using reasoning model for consistency analysis
       messages: [{
         role: 'system',
         content: this.classificationPrompts.consistency + analysisText + '\n\nOriginal Classification: ' + JSON.stringify(primaryResult)
@@ -540,7 +540,7 @@ ORG INFO: ${JSON.stringify(content.organizationInfo)}
       dateRelevance: false,
       geographicRelevance: false,
       selfConsistencyScore: 0,
-      modelUsed: 'o4-mini',
+      modelUsed: 'gpt-4o-mini',
       classifiedAt: new Date(),
       reviewFlag: true,
       error: `Classification failed: ${error.message}`

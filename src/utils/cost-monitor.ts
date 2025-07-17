@@ -32,11 +32,7 @@ interface BudgetStatus {
  */
 const SERVICE_COSTS = {
   openai: {
-    'o4-mini': {
-      input: 0.000003,  // $0.003 per 1K tokens
-      output: 0.000012  // $0.012 per 1K tokens
-    },
-    'gpt-4.1-mini': {
+    'gpt-4o-mini': {
       input: 0.00000015, // $0.00015 per 1K tokens
       output: 0.0000006  // $0.0006 per 1K tokens
     },
