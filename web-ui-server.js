@@ -633,12 +633,6 @@ const server = http.createServer((req, res) => {
     res.statusCode = 200;
     res.end(generateMonitoringDashboard());
     
-  } else if (req.url === '/config') {
-    // Configuration UI
-    res.setHeader('Content-Type', 'text/html');
-    res.statusCode = 200;
-    res.end(generateConfigUI());
-    
   } else if (req.url === '/config' && req.method === 'POST') {
     // Update configuration
     let body = '';
@@ -656,6 +650,12 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ success: false, error: error.message }));
       }
     });
+    
+  } else if (req.url === '/config') {
+    // Configuration UI
+    res.setHeader('Content-Type', 'text/html');
+    res.statusCode = 200;
+    res.end(generateConfigUI());
     
   } else if (req.url === '/health') {
     // Health check
