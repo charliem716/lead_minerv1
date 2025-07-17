@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  # Lead-Miner Agent Application
+  leadminer-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: leadminer-app
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://leadminer:${DB_PASSWORD}@postgres:5432/leadminer
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - leadminer-network
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "dist/health-check.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQL Database with pgvector
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: leadminer-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=leadminer
+      - POSTGRES_USER=leadminer
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./src/database/init-extensions.sql:/docker-entrypoint-initdb.d/00-extensions.sql
+    networks:
+      - leadminer-network
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leadminer -d leadminer"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis for caching and queues
+  redis:
+    image: redis:7-alpine
+    container_name: leadminer-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - leadminer-network
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: leadminer-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - leadminer-app
+    networks:
+      - leadminer-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  leadminer-network:
+    driver: bridge 
