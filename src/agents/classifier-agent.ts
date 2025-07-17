@@ -264,7 +264,9 @@ Return true if human review is recommended.
         throw new Error('No content in OpenAI response');
       }
       
-      const result = JSON.parse(messageContent);
+      // Clean markdown code blocks from OpenAI response
+      const cleanedContent = this.cleanMarkdownFromResponse(messageContent);
+      const result = JSON.parse(cleanedContent);
       
       // Enhanced keyword detection with business model patterns
       const enhancedKeywords = this.enhanceKeywordDetection(content, result.keywordMatches);
@@ -324,7 +326,8 @@ Return true if human review is recommended.
         return 0.5; // Default if no content
       }
       
-      const result = JSON.parse(messageContent);
+      const cleanedContent = this.cleanMarkdownFromResponse(messageContent);
+      const result = JSON.parse(cleanedContent);
       return result.consistencyScore || 0.5;
     } catch {
       return 0.5; // Default consistency score if parsing fails
@@ -341,6 +344,20 @@ Return true if human review is recommended.
     const lowConsistency = result.selfConsistencyScore < 0.7;
     
     return borderlineConfidence || conflictingSignals || lowConsistency;
+  }
+
+  /**
+   * Clean markdown code blocks from OpenAI responses
+   */
+  private cleanMarkdownFromResponse(content: string): string {
+    // Remove markdown code blocks (```json ... ```) and extract JSON
+    const jsonBlockMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (jsonBlockMatch && jsonBlockMatch[1]) {
+      return jsonBlockMatch[1].trim();
+    }
+    
+    // If no code blocks, return original content (might be plain JSON)
+    return content.trim();
   }
 
   /**
