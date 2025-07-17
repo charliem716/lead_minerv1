@@ -90,9 +90,8 @@ class ProductionApp {
       // Initialize performance optimizer
       console.log('✅ Performance optimizer initialized');
       
-      // Write initial status to sheets
-      await sheetsManager.writeHelloWorld();
-      console.log('✅ Initial status written to Google Sheets');
+      // Google Sheets ready for real data (removed test entry)
+      console.log('✅ Google Sheets ready for real data');
       
     } catch (error) {
       console.error('❌ System initialization failed:', error);
@@ -238,9 +237,8 @@ class ProductionApp {
         monitoringSystem.cleanup();
         console.log('✅ Monitoring cleaned up');
         
-        // Final status update
-        await sheetsManager.writeHelloWorld();
-        console.log('✅ Final status written to Google Sheets');
+        // Shutdown complete (removed test entry)
+        console.log('✅ Shutdown complete');
         
         console.log('✅ Graceful shutdown completed');
         process.exit(0);
