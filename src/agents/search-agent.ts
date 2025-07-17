@@ -18,17 +18,30 @@ export class SearchAgent {
   }
 
   /**
-   * Generate search queries based on configuration
+   * Generate search queries based on configuration with enhanced exclusion patterns
    */
   generateSearchQueries(): SearchQuery[] {
     const queries: SearchQuery[] = [];
     const baseKeywords = [
-      'nonprofit travel auction',
-      'charity travel package raffle',
-      'fundraising travel auction',
-      'nonprofit vacation auction',
-      'charity trip raffle',
-      'fundraising travel packages'
+      // Educational institutions (prioritized)
+      '"school travel auction" "fundraiser"',
+      '"university travel raffle" "donate"',
+      '"college vacation auction" "support"',
+      '"pta travel packages" "fundraising"',
+      '"student travel auction" "501c3"',
+      '"alumni travel raffle" "mission"',
+      
+      // General nonprofit travel fundraising
+      '"nonprofit travel packages" "donate"',
+      '"charity vacation auction" "support our"',
+      '"foundation travel raffle" "fundraising"',
+      '"travel packages fundraiser" "501c3"',
+      '"vacation donations" "nonprofit"',
+      
+      // Event-specific terms
+      '"silent auction travel" "charity"',
+      '"gala vacation packages" "fundraiser"',
+      '"annual travel auction" "donate"'
     ];
 
     // Generate queries with date range filtering
@@ -96,8 +109,22 @@ export class SearchAgent {
       query += ` after:${startDate} before:${endDate}`;
     }
 
-    // Exclude certain domains that are likely to be false positives
+    // Exclude B2B service providers and false positive domains
     query += ' -site:facebook.com -site:twitter.com -site:instagram.com -site:linkedin.com';
+    query += ' -site:winspire.com -site:biddingforgood.com -site:auctionpackages.com -site:charitybuzz.com';
+    query += ' -site:32auctions.com -site:givesmart.com -site:handbid.com';
+    
+    // Exclude B2B service language
+    query += ' -"we provide" -"our services" -"contact for quote" -"packages starting"';
+    query += ' -"auction items for sale" -"we donate" -"fundraising packages available"';
+    query += ' -"call to book" -"pricing" -"vendor" -"supplier"';
+    
+    // Exclude political and government
+    query += ' -"campaign" -"political" -"government" -"municipal" -"federal"';
+    query += ' -"state agency" -"department of" -"city of" -"county of"';
+    
+    // Exclude for-profit indicators
+    query += ' -"corporation" -"llc" -"inc." -"shareholders" -"investors"';
 
     return query;
   }

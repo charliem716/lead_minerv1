@@ -12,11 +12,14 @@ export interface ClassificationResult {
   hasAuctionKeywords: boolean;
   hasTravelKeywords: boolean;
   isNonprofit: boolean;
+  businessModel: 'nonprofit' | 'b2b_service' | 'vendor' | 'unknown';
   reasoning: string;
   keywordMatches: {
     auction: string[];
     travel: string[];
     nonprofit: string[];
+    b2bExclusions: string[];
+    nonprofitIndicators: string[];
   };
   dateRelevance: boolean;
   geographicRelevance: boolean;
@@ -29,8 +32,7 @@ export interface ClassificationResult {
 
 /**
  * High-Precision Classifier Agent
- * Uses OpenAI o4-mini for reasoning tasks (classification, analysis)
- * Use gpt-4.1-mini for simple, no-reasoning tasks
+ * Enhanced with business model detection to filter out B2B service providers
  */
 export class ClassifierAgent {
   private openaiClient: OpenAI;
@@ -45,6 +47,60 @@ export class ClassifierAgent {
     review: ''
   };
 
+  // B2B Service Provider Exclusion Patterns
+  private b2bExclusionPatterns = [
+    // Service language
+    /we provide/i, /our services/i, /contact us for/i, /request a quote/i,
+    /packages available/i, /pricing/i, /book now/i, /reserve/i,
+    /we offer/i, /our team/i, /professional services/i, /consultation/i,
+    
+    // Business indicators
+    /starting at \$|from \$|prices begin/i, /per person|per night|per package/i,
+    /call to book/i, /availability/i, /terms and conditions/i,
+    /vendor/i, /supplier/i, /provider/i, /agency/i, /company/i,
+    
+    // Auction service providers specifically
+    /auction items/i, /donation items/i, /consignment/i, /fundraising packages/i,
+    /silent auction donations/i, /charity auction packages/i,
+    /we donate/i, /donated by/i, /courtesy of/i,
+    
+    // Political and government exclusions
+    /political action committee/i, /pac/i, /campaign/i, /candidate/i,
+    /government/i, /municipal/i, /federal/i, /state agency/i,
+    /department of/i, /city of/i, /county of/i,
+    
+    // For-profit indicators
+    /corporation/i, /llc/i, /inc\./i, /ltd\./i, /profit/i,
+    /shareholders/i, /investors/i, /stock/i, /ipo/i
+  ];
+
+  // Nonprofit Indicator Patterns
+  private nonprofitIndicatorPatterns = [
+    // Donation language
+    /donate/i, /donation/i, /contribute/i, /support our/i, /help us/i,
+    /make a difference/i, /join our mission/i, /volunteer/i,
+    
+    // Fundraising language
+    /fundraising/i, /raise funds/i, /support our cause/i, /our mission/i,
+    /501\(c\)\(3\)/i, /tax deductible/i, /charitable/i,
+    
+    // Event language (from nonprofit perspective)
+    /our annual/i, /join us for/i, /attend our/i, /save the date/i,
+    /tickets available/i, /sponsorship/i, /become a sponsor/i,
+    
+    // Organizational structure
+    /board of directors/i, /trustees/i, /founded in/i, /established/i,
+    /ein:|tax id:/i, /nonprofit/i, /non-profit/i, /charity/i, /foundation/i,
+    
+    // Travel package fundraising specific
+    /travel packages for/i, /vacation donations/i, /trip fundraiser/i,
+    /travel auction/i, /vacation raffle/i, /getaway auction/i,
+    
+    // Educational institutions (prioritized)
+    /school/i, /university/i, /college/i, /academy/i, /education/i,
+    /student/i, /alumni/i, /pta/i, /parent teacher/i, /booster/i
+  ];
+
   constructor() {
     this.confidenceThreshold = config.precision.confidenceThreshold;
     
@@ -53,32 +109,42 @@ export class ClassifierAgent {
       apiKey: config.apis.openai.apiKey,
     });
     
-    console.log('🤖 ClassifierAgent initialized with REAL OpenAI API');
+    console.log('🤖 ClassifierAgent initialized with enhanced business model detection');
     
     this.setupPrompts();
   }
 
   /**
-   * Setup high-precision classification prompts
+   * Setup enhanced classification prompts with business model detection
    */
   private setupPrompts(): void {
     this.classificationPrompts = {
       primary: `
-You are a highly precise classifier for nonprofit travel auction events. Your task is to determine if the given content describes a U.S. nonprofit organization running a travel package auction or raffle.
+You are a highly precise classifier for nonprofit travel auction events. Your task is to identify ACTUAL nonprofits running travel auctions, NOT companies that provide services to nonprofits.
+
+CRITICAL DISTINCTION:
+- TARGET: Nonprofits/charities running their own fundraising events with travel packages
+- EXCLUDE: Companies that sell/donate travel packages to nonprofits (like WinspireMe, BiddingForGood, etc.)
 
 STRICT CRITERIA (ALL must be present for positive classification):
-1. AUCTION/RAFFLE: Must mention auction, raffle, bidding, gala fundraiser with bidding component
-2. TRAVEL PACKAGE: Must include travel destinations, trips, vacations, cruises, resort stays, or flight packages
-3. NONPROFIT: Must be a U.S. nonprofit organization (501c3, charity, foundation, church, school)
-4. FUNDRAISING: Must be for charitable/fundraising purposes
+1. TRAVEL PACKAGE OFFERING: Must offer travel packages, trips, vacations, cruises, or getaways as fundraising items
+2. NONPROFIT ORGANIZATION: Must be a verified nonprofit (501c3, charity, foundation, school, educational institution)
+3. FUNDRAISING PURPOSE: The travel packages must be offered to raise funds for the organization's mission
+4. NONPROFIT-RUN: The organization must be OFFERING the packages themselves, not a B2B provider selling to them
 
-EXCLUSIONS (classify as NOT relevant):
-- School raffles without travel packages
-- Individual travel bookings or commercial travel sites
-- For-profit event companies
-- International organizations (non-US)
-- Completed/past events (unless specifically mentioned as recurring)
-- Generic charity information without auction/raffle events
+IMMEDIATE EXCLUSIONS (classify as NOT relevant):
+- B2B service providers that sell/donate travel packages TO nonprofits (like WinspireMe, BiddingForGood)
+- Travel agencies, tour operators, or vacation rental companies
+- Auction service providers or fundraising platforms
+- Political organizations, PACs, campaigns, or candidates
+- Government entities (federal, state, municipal agencies)
+- For-profit companies (corporations, LLCs, businesses with shareholders)
+- Event planning or consulting companies
+- Organizations with commercial language: "we provide", "our services", "contact for quote", "pricing"
+
+BUSINESS MODEL INDICATORS:
+- NONPROFIT LANGUAGE: "donate to us", "support our mission", "volunteer with us", "our annual fundraiser"
+- B2B SERVICE LANGUAGE: "we provide", "our packages", "contact us for pricing", "we donate to charities"
 
 Respond with a JSON object containing:
 {
@@ -87,32 +153,36 @@ Respond with a JSON object containing:
   "hasAuctionKeywords": boolean,
   "hasTravelKeywords": boolean,
   "isNonprofit": boolean,
-  "reasoning": "detailed explanation of classification decision",
+  "businessModel": "nonprofit" | "b2b_service" | "vendor" | "unknown",
+  "reasoning": "detailed explanation focusing on business model distinction",
   "keywordMatches": {
     "auction": ["matched auction keywords"],
     "travel": ["matched travel keywords"],
-    "nonprofit": ["matched nonprofit keywords"]
+    "nonprofit": ["matched nonprofit keywords"],
+    "b2bExclusions": ["matched B2B exclusion patterns"],
+    "nonprofitIndicators": ["matched nonprofit indicator patterns"]
   }
 }
 
 CONTENT TO ANALYZE:
 `,
       consistency: `
-Perform a secondary consistency check on this classification. Review the same content with fresh analysis.
+Perform a secondary consistency check on this classification, specifically focusing on business model detection.
 
-Focus on potential false positives:
-- Is this definitely a nonprofit travel auction/raffle?
-- Are there any red flags that suggest this is not relevant?
-- Does the confidence score seem appropriate?
+Key questions:
+- Is this definitely a nonprofit running their own event, not a service provider?
+- Are there any B2B service indicators that were missed?
+- Does the language suggest they're seeking donations or selling services?
+- Is the confidence score appropriate given the business model clarity?
 
 Provide a consistency score (0-1) where 1 means fully consistent with the original classification.
 `,
       review: `
 Determine if this classification result requires human review based on:
+- Unclear business model (could be nonprofit or service provider)
+- Mixed signals in content (both nonprofit and B2B language)
 - Borderline confidence score (0.6-0.8)
-- Conflicting signals in the content
-- Unusual or ambiguous nonprofit status
-- Complex event structure
+- Unusual organizational structure
 
 Return true if human review is recommended.
 `
@@ -120,13 +190,13 @@ Return true if human review is recommended.
   }
 
   /**
-   * Classify scraped content for relevance
+   * Classify scraped content for relevance with enhanced business model detection
    */
   async classifyContent(content: ScrapedContent): Promise<ClassificationResult> {
-    console.log(`Classifying content: ${content.url}`);
+    console.log(`Classifying content with business model detection: ${content.url}`);
     
     try {
-      // Primary classification
+      // Primary classification with business model detection
       const primaryResult = await this.performPrimaryClassification(content);
       
       // Self-consistency check
@@ -142,8 +212,11 @@ Return true if human review is recommended.
         hasAuctionKeywords: primaryResult.hasAuctionKeywords || false,
         hasTravelKeywords: primaryResult.hasTravelKeywords || false,
         isNonprofit: primaryResult.isNonprofit || false,
+        businessModel: primaryResult.businessModel || 'unknown',
         reasoning: primaryResult.reasoning || '',
-        keywordMatches: primaryResult.keywordMatches || { auction: [], travel: [], nonprofit: [] },
+        keywordMatches: primaryResult.keywordMatches || { 
+          auction: [], travel: [], nonprofit: [], b2bExclusions: [], nonprofitIndicators: [] 
+        },
         dateRelevance: primaryResult.dateRelevance || false,
         geographicRelevance: primaryResult.geographicRelevance || false,
         selfConsistencyScore: consistencyScore,
@@ -152,7 +225,14 @@ Return true if human review is recommended.
         classifiedAt: new Date()
       };
       
-      console.log(`Classification complete: ${result.isRelevant ? 'RELEVANT' : 'NOT RELEVANT'} (${result.confidenceScore.toFixed(2)})`);
+      // Apply business model filter - exclude B2B services
+      if (result.businessModel === 'b2b_service' || result.businessModel === 'vendor') {
+        result.isRelevant = false;
+        result.confidenceScore = Math.min(result.confidenceScore, 0.3);
+        result.reasoning += ' | EXCLUDED: Identified as B2B service provider, not target nonprofit.';
+      }
+      
+      console.log(`Classification complete: ${result.isRelevant ? 'RELEVANT' : 'NOT RELEVANT'} (${result.confidenceScore.toFixed(2)}) - Business Model: ${result.businessModel}`);
       
       return result;
       
@@ -163,7 +243,7 @@ Return true if human review is recommended.
   }
 
   /**
-   * Perform primary classification using o4-mini (reasoning model)
+   * Perform primary classification with enhanced business model detection
    */
   private async performPrimaryClassification(content: ScrapedContent): Promise<Partial<ClassificationResult>> {
     const analysisText = this.prepareContentForAnalysis(content);
@@ -175,7 +255,7 @@ Return true if human review is recommended.
         content: this.classificationPrompts.primary + analysisText
       }],
       temperature: 0.1, // Low temperature for consistent results
-      max_tokens: 500
+      max_tokens: 600
     });
     
     try {
@@ -186,8 +266,11 @@ Return true if human review is recommended.
       
       const result = JSON.parse(messageContent);
       
-      // Enhanced keyword detection
+      // Enhanced keyword detection with business model patterns
       const enhancedKeywords = this.enhanceKeywordDetection(content, result.keywordMatches);
+      
+      // Business model detection
+      const businessModel = this.detectBusinessModel(content, enhancedKeywords);
       
       // Date relevance check
       const dateRelevance = this.checkDateRelevance(content);
@@ -195,12 +278,22 @@ Return true if human review is recommended.
       // Geographic relevance check
       const geographicRelevance = this.checkGeographicRelevance(content);
       
+      // Apply organization type preferences
+      let adjustedConfidence = this.adjustConfidenceScore(
+        result.confidenceScore, 
+        dateRelevance, 
+        geographicRelevance, 
+        businessModel
+      );
+      adjustedConfidence = this.applyOrganizationPreferences(content, adjustedConfidence);
+
       return {
         ...result,
+        businessModel,
         keywordMatches: enhancedKeywords,
         dateRelevance,
         geographicRelevance,
-        confidenceScore: this.adjustConfidenceScore(result.confidenceScore, dateRelevance, geographicRelevance)
+        confidenceScore: adjustedConfidence
       };
       
     } catch (parseError) {
@@ -265,7 +358,7 @@ ORG INFO: ${JSON.stringify(content.organizationInfo)}
   }
 
   /**
-   * Enhance keyword detection with additional patterns
+   * Enhance keyword detection with business model patterns
    */
   private enhanceKeywordDetection(content: ScrapedContent, baseKeywords: any): any {
     const text = `${content.title} ${content.content}`.toLowerCase();
@@ -286,9 +379,11 @@ ORG INFO: ${JSON.stringify(content.organizationInfo)}
     ];
     
     return {
-      auction: [...baseKeywords.auction, ...this.findMatches(text, auctionPatterns)],
-      travel: [...baseKeywords.travel, ...this.findMatches(text, travelPatterns)],
-      nonprofit: [...baseKeywords.nonprofit, ...this.findMatches(text, nonprofitPatterns)]
+      auction: [...(baseKeywords.auction || []), ...this.findMatches(text, auctionPatterns)],
+      travel: [...(baseKeywords.travel || []), ...this.findMatches(text, travelPatterns)],
+      nonprofit: [...(baseKeywords.nonprofit || []), ...this.findMatches(text, nonprofitPatterns)],
+      b2bExclusions: [...(baseKeywords.b2bExclusions || []), ...this.findMatches(text, this.b2bExclusionPatterns)],
+      nonprofitIndicators: [...(baseKeywords.nonprofitIndicators || []), ...this.findMatches(text, this.nonprofitIndicatorPatterns)]
     };
   }
 
@@ -325,15 +420,107 @@ ORG INFO: ${JSON.stringify(content.organizationInfo)}
   }
 
   /**
-   * Adjust confidence score based on date and geographic relevance
+   * Adjust confidence score based on date, geographic relevance, and organization type
    */
-  private adjustConfidenceScore(baseScore: number, dateRelevant: boolean, geoRelevant: boolean): number {
+  private adjustConfidenceScore(baseScore: number, dateRelevant: boolean, geoRelevant: boolean, businessModel: 'nonprofit' | 'b2b_service' | 'vendor' | 'unknown'): number {
     let adjusted = baseScore;
     
     if (!dateRelevant) adjusted *= 0.8;
     if (!geoRelevant) adjusted *= 0.9;
+
+    // Adjust for business model
+    if (businessModel === 'b2b_service' || businessModel === 'vendor') {
+      adjusted *= 0.5; // Lower confidence for B2B/Vendor
+    }
     
     return Math.max(0, Math.min(1, adjusted));
+  }
+
+  /**
+   * Apply organization type preferences (reduce religious orgs slightly)
+   */
+  private applyOrganizationPreferences(content: ScrapedContent, score: number): number {
+    const text = `${content.title} ${content.content}`.toLowerCase();
+    
+    // Boost educational institutions
+    if (text.includes('school') || text.includes('university') || 
+        text.includes('college') || text.includes('pta') || 
+        text.includes('student') || text.includes('education')) {
+      return Math.min(1.0, score * 1.1); // 10% boost
+    }
+    
+    // Slightly reduce religious organizations (but don't exclude)
+    if (text.includes('church') || text.includes('cathedral') || 
+        text.includes('synagogue') || text.includes('mosque') || 
+        text.includes('temple') || text.includes('parish') ||
+        text.includes('diocese') || text.includes('ministry')) {
+      return score * 0.9; // 10% reduction
+    }
+    
+    return score;
+  }
+
+  /**
+   * Detect business model based on content patterns
+   */
+  private detectBusinessModel(content: ScrapedContent, keywords: any): 'nonprofit' | 'b2b_service' | 'vendor' | 'unknown' {
+    const text = `${content.title} ${content.content}`.toLowerCase();
+    const url = content.url.toLowerCase();
+    
+    // Check for B2B exclusion patterns
+    const b2bMatches = keywords.b2bExclusions.length;
+    const nonprofitMatches = keywords.nonprofitIndicators.length;
+    
+    // URL-based detection for known B2B providers
+    if (url.includes('winspire') || url.includes('biddingforgood') || 
+        url.includes('auctionpackages') || url.includes('charitybuzz') ||
+        url.includes('auction') && (url.includes('services') || url.includes('packages'))) {
+      return 'b2b_service';
+    }
+    
+    // Political/Government exclusions
+    if (text.includes('campaign') || text.includes('political') || 
+        text.includes('government') || text.includes('municipal') ||
+        text.includes('federal') || text.includes('state agency')) {
+      return 'vendor'; // Treat as excluded
+    }
+    
+    // For-profit indicators
+    if (text.includes('corporation') || text.includes('llc') || 
+        text.includes('shareholders') || text.includes('inc.')) {
+      return 'vendor';
+    }
+    
+    // Strong B2B indicators
+    if (b2bMatches > nonprofitMatches && b2bMatches > 2) {
+      return 'b2b_service';
+    }
+    
+    // Check for vendor language
+    if (text.includes('we provide') || text.includes('our services') || 
+        text.includes('contact for quote') || text.includes('pricing')) {
+      return 'vendor';
+    }
+    
+    // Educational institutions get priority (schools, universities)
+    if (text.includes('school') || text.includes('university') || 
+        text.includes('college') || text.includes('pta') || 
+        text.includes('student') || text.includes('education')) {
+      return 'nonprofit';
+    }
+    
+    // Strong nonprofit indicators
+    if (nonprofitMatches > b2bMatches && nonprofitMatches > 2) {
+      return 'nonprofit';
+    }
+    
+    // Check for nonprofit-specific language
+    if (text.includes('donate to us') || text.includes('support our mission') || 
+        text.includes('501(c)(3)') || text.includes('our annual fundraiser')) {
+      return 'nonprofit';
+    }
+    
+    return 'unknown';
   }
 
   /**
@@ -347,8 +534,9 @@ ORG INFO: ${JSON.stringify(content.organizationInfo)}
       hasAuctionKeywords: false,
       hasTravelKeywords: false,
       isNonprofit: false,
+      businessModel: 'unknown',
       reasoning: `Classification failed: ${error.message}`,
-      keywordMatches: { auction: [], travel: [], nonprofit: [] },
+      keywordMatches: { auction: [], travel: [], nonprofit: [], b2bExclusions: [], nonprofitIndicators: [] },
       dateRelevance: false,
       geographicRelevance: false,
       selfConsistencyScore: 0,
