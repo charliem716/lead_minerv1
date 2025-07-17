@@ -1,7 +1,7 @@
 import { config } from '../config';
 import { Lead, SearchQuery, ScrapedContent, ClassificationResult, NonprofitVerification, AgentExecutionContext } from '../types';
 import { SearchAgent } from '../agents/search-agent';
-import { ScraperAgent } from '../agents/scraper-agent';
+// import { ScraperAgent } from '../agents/scraper-agent'; // No longer needed - using SerpAPI content directly
 import { ClassifierAgent } from '../agents/classifier-agent';
 import { NonprofitVerifier } from '../agents/nonprofit-verifier';
 import { SheetsAgent } from '../agents/sheets-agent';
@@ -56,7 +56,7 @@ export class PipelineOrchestrator {
   
   // Real agent instances
   private searchAgent: SearchAgent;
-  private scraperAgent: ScraperAgent;
+  // private scraperAgent: ScraperAgent; // No longer needed - using SerpAPI content directly
   private classifierAgent: ClassifierAgent;
   private nonprofitVerifier: NonprofitVerifier;
   private sheetsAgent: SheetsAgent;
@@ -90,7 +90,7 @@ export class PipelineOrchestrator {
 
     // Initialize real agents
     this.searchAgent = new SearchAgent();
-    this.scraperAgent = new ScraperAgent();
+    // this.scraperAgent = new ScraperAgent(); // No longer needed - using SerpAPI content directly
     this.classifierAgent = new ClassifierAgent();
     this.nonprofitVerifier = new NonprofitVerifier();
     this.sheetsAgent = new SheetsAgent();
@@ -325,11 +325,11 @@ export class PipelineOrchestrator {
   private extractOrgInfoFromSnippet(snippet: string, title: string): any {
     const fullText = `${title} ${snippet}`;
     
-    // Look for organization indicators
-    const orgKeywords = ['foundation', 'nonprofit', 'charity', 'organization', 'society', 'association'];
-    const matchedKeywords = orgKeywords.filter(keyword => 
-      fullText.toLowerCase().includes(keyword)
-    );
+         // Look for organization indicators (not currently used but kept for future enhancement)
+     // const orgKeywords = ['foundation', 'nonprofit', 'charity', 'organization', 'society', 'association'];
+     // const matchedKeywords = orgKeywords.filter(keyword => 
+     //   fullText.toLowerCase().includes(keyword)
+     // );
     
     // Extract potential organization name from title
     const orgName = title.split(' - ')[0] || title.split(' | ')[0] || title;
