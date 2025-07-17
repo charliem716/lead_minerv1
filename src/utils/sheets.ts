@@ -139,8 +139,22 @@ export class SheetsManager {
       return date.toISOString().split('T')[0] as string;
     };
 
+    // Helper function to format datetime with time
+    const formatDateTime = (date: Date | undefined): string => {
+      if (!date) return '';
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+    };
+
     // Ensure all values are properly typed as strings
-    const dateAdded = (formatDate(lead.createdAt) || new Date().toISOString().split('T')[0]) as string;
+    const dateAdded = formatDateTime(lead.createdAt) || formatDateTime(new Date());
     const eventDate = formatDate(lead.eventDate);
     
     return {

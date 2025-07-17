@@ -418,7 +418,7 @@ export class PipelineOrchestrator {
   }
 
   /**
-   * REAL nonprofit verification
+   * REAL nonprofit verification with unique EIN handling
    */
   private async realVerification(contents: ScrapedContent[]): Promise<NonprofitVerification[]> {
     const verifications: NonprofitVerification[] = [];
@@ -432,30 +432,39 @@ export class PipelineOrchestrator {
           content.organizationInfo?.name || 'Unknown'
         );
         
-        // Only add verification if it's not failed
-        if (verificationResult.source !== 'failed') {
-          const verification: NonprofitVerification = {
-            id: `verification-${content.id}`,
-            leadId: content.id,
-            ein: verificationResult.ein,
-            isVerified: verificationResult.isVerified,
-            source: verificationResult.source as 'irs' | 'guidestar' | 'manual',
-            verifiedAt: new Date(),
-            additionalInfo: verificationResult.verificationDetails
-          };
-          
-          verifications.push(verification);
-          
-          console.log(`✅ Verification complete: ${verification.isVerified ? 'VERIFIED' : 'NOT VERIFIED'}`);
-        } else {
-          console.log(`❌ Verification failed for ${content.organizationInfo?.name}`);
-        }
+        // Create verification record for each content item, regardless of success/failure
+        const verification: NonprofitVerification = {
+          id: `verification-${content.id}`,
+          leadId: content.id,
+          ein: verificationResult.ein || undefined, // Don't use same EIN for failed results
+          isVerified: verificationResult.isVerified,
+          source: verificationResult.source as 'irs' | 'guidestar' | 'manual',
+          verifiedAt: new Date(),
+          additionalInfo: verificationResult.verificationDetails
+        };
+        
+        verifications.push(verification);
+        
+        console.log(`✅ Verification complete: ${verification.isVerified ? 'VERIFIED' : 'NOT VERIFIED'} - EIN: ${verification.ein || 'N/A'}`);
         
         // Rate limiting between verifications
         await new Promise(resolve => setTimeout(resolve, 500));
         
       } catch (error) {
         console.error(`❌ Verification failed for ${content.organizationInfo?.name}:`, error);
+        
+        // Create failed verification record
+        const failedVerification: NonprofitVerification = {
+          id: `verification-${content.id}`,
+          leadId: content.id,
+          ein: undefined, // No EIN for failed verification
+          isVerified: false,
+          source: 'manual',
+          verifiedAt: new Date(),
+          additionalInfo: { error: error instanceof Error ? error.message : String(error) }
+        };
+        
+        verifications.push(failedVerification);
       }
     }
     

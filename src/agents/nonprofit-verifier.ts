@@ -271,8 +271,12 @@ export class NonprofitVerifier {
         const data = await response.json();
         
         if (data.organizations && data.organizations.length > 0) {
-          const org = data.organizations[0]; // Take the first match
-          return await this.verifyWithIRS(org.ein);
+          // Find the best match by name similarity instead of just taking the first
+          const bestMatch = this.findBestNameMatch(orgName, data.organizations);
+          if (bestMatch && bestMatch.ein) {
+            console.log(`Found potential match: ${bestMatch.name} (EIN: ${bestMatch.ein})`);
+            return await this.verifyWithIRS(bestMatch.ein);
+          }
         }
       }
       
@@ -282,6 +286,54 @@ export class NonprofitVerifier {
       console.error('Name search error:', error);
       return this.createFailedResult(undefined, orgName, error as Error);
     }
+  }
+
+  /**
+   * Find the best matching organization by name similarity
+   */
+  private findBestNameMatch(searchName: string, organizations: any[]): any {
+    if (!organizations || organizations.length === 0) return null;
+    
+    const normalizedSearch = searchName.toLowerCase().trim();
+    let bestMatch = null;
+    let bestScore = 0;
+    
+    for (const org of organizations) {
+      if (!org.name) continue;
+      
+      const normalizedOrgName = org.name.toLowerCase().trim();
+      
+      // Calculate similarity score
+      let score = 0;
+      
+      // Exact match gets highest score
+      if (normalizedOrgName === normalizedSearch) {
+        score = 1.0;
+      }
+      // Contains search term
+      else if (normalizedOrgName.includes(normalizedSearch)) {
+        score = 0.8;
+      }
+      // Search term contains org name
+      else if (normalizedSearch.includes(normalizedOrgName)) {
+        score = 0.6;
+      }
+      // Check for word overlap
+      else {
+        const searchWords = normalizedSearch.split(/\s+/);
+        const orgWords = normalizedOrgName.split(/\s+/);
+        const commonWords = searchWords.filter(word => orgWords.includes(word));
+        score = commonWords.length / Math.max(searchWords.length, orgWords.length);
+      }
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = org;
+      }
+    }
+    
+    // Only return match if similarity is above threshold
+    return bestScore > 0.3 ? bestMatch : null;
   }
 
   /**
