@@ -228,9 +228,20 @@ export class DateFilter {
   }
 
   /**
-   * Check if date is within configured event date range
+   * Check if date is within configured event date range AND is in the future
    */
   isValidEventDate(date: Date): boolean {
+    // First check: Must be in the future (at least 7 days from now to allow for planning)
+    const today = new Date();
+    const minimumFutureDate = new Date(today);
+    minimumFutureDate.setDate(today.getDate() + 7); // At least 1 week in the future
+    
+    if (date < minimumFutureDate) {
+      console.log(`🗓️ Event date ${date.toDateString()} is in the past or too soon (minimum: ${minimumFutureDate.toDateString()})`);
+      return false;
+    }
+
+    // Second check: Must be within configured date range
     if (!config.dateRanges.eventDateRange) return true;
 
     try {
@@ -243,7 +254,13 @@ export class DateFilter {
       const startDate = new Date(startDateStr);
       const endDate = new Date(endDateStr);
       
-      return date >= startDate && date <= endDate;
+      const isInRange = date >= startDate && date <= endDate;
+      
+      if (!isInRange) {
+        console.log(`🗓️ Event date ${date.toDateString()} is outside configured range (${startDate.toDateString()} to ${endDate.toDateString()})`);
+      }
+      
+      return isInRange;
     } catch (error) {
       console.warn('Invalid event date range configuration:', error);
       return true;

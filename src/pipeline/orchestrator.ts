@@ -5,6 +5,7 @@ import { SearchAgent } from '../agents/search-agent';
 import { ClassifierAgent } from '../agents/classifier-agent';
 import { NonprofitVerifier } from '../agents/nonprofit-verifier';
 import { SheetsAgent } from '../agents/sheets-agent';
+import { DateFilter } from '../utils/date-filter';
 
 export interface PipelineResult {
   id: string;
@@ -60,6 +61,7 @@ export class PipelineOrchestrator {
   private classifierAgent: ClassifierAgent;
   private nonprofitVerifier: NonprofitVerifier;
   private sheetsAgent: SheetsAgent;
+  private dateFilter: DateFilter;
 
   constructor(customConfig?: Partial<PipelineConfig>) {
     this.sessionId = 'pipeline-' + Date.now();
@@ -94,6 +96,7 @@ export class PipelineOrchestrator {
     this.classifierAgent = new ClassifierAgent();
     this.nonprofitVerifier = new NonprofitVerifier();
     this.sheetsAgent = new SheetsAgent();
+    this.dateFilter = new DateFilter();
 
     this.results = this.initializeResults();
     console.log('🚀 Pipeline Orchestrator initialized with REAL agents');
@@ -235,22 +238,29 @@ export class PipelineOrchestrator {
           // Convert SerpAPI results directly to ScrapedContent (no browser needed!)
           for (const result of searchResults.slice(0, 5)) { // Process top 5 results per query
             if (result.link && this.isValidUrl(result.link)) {
-                             const scrapedData: ScrapedContent = {
-                 id: `serp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                 url: result.link,
-                 title: result.title || 'No title',
-                 content: result.snippet || '',
-                 images: [],
-                 scrapedAt: new Date(),
-                 processingStatus: 'pending',
-                 statusCode: 200,
-                 eventInfo: this.extractEventInfoFromSnippet(result.snippet || '', result.title || ''),
-                 contactInfo: this.extractContactInfoFromSnippet(result.snippet || ''),
-                 organizationInfo: this.extractOrgInfoFromSnippet(result.snippet || '', result.title || '')
-               };
-              
-              scrapedContent.push(scrapedData);
-              console.log(`✅ Processed SerpAPI result: ${scrapedData.title}`);
+                             const eventInfo = this.extractEventInfoFromSnippet(result.snippet || '', result.title || '');
+               
+               // Only include results with future event dates
+               if (eventInfo.hasFutureDate) {
+                 const scrapedData: ScrapedContent = {
+                   id: `serp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                   url: result.link,
+                   title: result.title || 'No title',
+                   content: result.snippet || '',
+                   images: [],
+                   scrapedAt: new Date(),
+                   processingStatus: 'pending',
+                   statusCode: 200,
+                   eventInfo: eventInfo,
+                   contactInfo: this.extractContactInfoFromSnippet(result.snippet || ''),
+                   organizationInfo: this.extractOrgInfoFromSnippet(result.snippet || '', result.title || '')
+                 };
+                
+                 scrapedContent.push(scrapedData);
+                 console.log(`✅ Processed SerpAPI result with future date: ${scrapedData.title} (${eventInfo.date})`);
+               } else {
+                 console.log(`⏭️  Skipping result without future date: ${result.title}`);
+               }
             }
           }
           
@@ -268,22 +278,35 @@ export class PipelineOrchestrator {
   }
 
   /**
-   * Extract event information from SerpAPI snippet
+   * Extract event information from SerpAPI snippet with future date validation
    */
   private extractEventInfoFromSnippet(snippet: string, title: string): any {
     const fullText = `${title} ${snippet}`;
     
-    // Extract dates
+    // Extract dates and validate they are in the future
     const datePatterns = [
       /\b(\w+\s+\d{1,2},?\s+\d{4})\b/g,
       /\b(\d{1,2}\/\d{1,2}\/\d{4})\b/g,
       /\b(\d{4}-\d{2}-\d{2})\b/g
     ];
     
-    const dates = [];
+    const validFutureDates = [];
     for (const pattern of datePatterns) {
       const matches = fullText.match(pattern);
-      if (matches) dates.push(...matches);
+      if (matches) {
+        for (const dateStr of matches) {
+          const parsedDate = this.dateFilter.parseEventDate(dateStr);
+          if (parsedDate && this.dateFilter.isValidEventDate(parsedDate)) {
+            validFutureDates.push({
+              dateString: dateStr,
+              parsedDate: parsedDate
+            });
+            console.log(`✅ Found valid future event date: ${dateStr} (${parsedDate.toDateString()})`);
+          } else if (parsedDate) {
+            console.log(`❌ Event date ${dateStr} is in the past or invalid, skipping`);
+          }
+        }
+      }
     }
     
     // Extract event types
@@ -295,11 +318,14 @@ export class PipelineOrchestrator {
       }
     }
     
-         return {
-       title: title,
-       date: dates[0] || undefined,
-       description: snippet
-     };
+    return {
+      title: title,
+      date: validFutureDates.length > 0 ? validFutureDates[0]?.dateString : undefined,
+      parsedDate: validFutureDates.length > 0 ? validFutureDates[0]?.parsedDate : undefined,
+      description: snippet,
+      eventTypes: eventTypes,
+      hasFutureDate: validFutureDates.length > 0
+    };
   }
 
   /**
