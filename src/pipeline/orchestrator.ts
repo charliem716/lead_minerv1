@@ -172,62 +172,98 @@ export class PipelineOrchestrator {
 
   /**
    * REAL search using SerpAPI content directly (no browser scraping needed)
+   * Optimized for speed with parallel processing and early termination
    */
   private async realSearchAndScrape(queries: SearchQuery[]): Promise<ScrapedContent[]> {
     const scrapedContent: ScrapedContent[] = [];
+    let processedQueries = 0;
+    const maxQueries = 20; // Limit to first 20 queries for speed
+    const targetLeads = 10; // Stop when we have enough potential leads
     
-    // Process queries in batches to manage rate limits
-    const batchSize = Math.min(this.config.batchSize, 5); // Limit to 5 to avoid overwhelming APIs
+    console.log(`🚀 Processing ${Math.min(queries.length, maxQueries)} search queries in parallel batches`);
     
-    for (let i = 0; i < queries.length; i += batchSize) {
-      const batch = queries.slice(i, i + batchSize);
+    // Process queries in smaller parallel batches for speed
+    const batchSize = 5;
+    const limitedQueries = queries.slice(0, maxQueries);
+    
+    for (let i = 0; i < limitedQueries.length && scrapedContent.length < targetLeads * 5; i += batchSize) {
+      const batch = limitedQueries.slice(i, i + batchSize);
       
-      for (const query of batch) {
+      // Process batch in parallel
+      const batchPromises = batch.map(async (query) => {
         try {
           console.log(`🔍 Executing search: ${query.query}`);
           
-          // Execute real search
-          const searchResults = await this.searchAgent.executeSearch(query);
+          // Execute real search with timeout
+          const searchResults = await Promise.race([
+            this.searchAgent.executeSearch(query),
+            new Promise<any[]>((_, reject) => 
+              setTimeout(() => reject(new Error('Search timeout')), 15000)
+            )
+          ]);
+          
+          const batchResults: ScrapedContent[] = [];
           
           // Convert SerpAPI results directly to ScrapedContent (no browser needed!)
-          for (const result of searchResults.slice(0, 10)) { // Process top 5 results per query
+          for (const result of searchResults.slice(0, 5)) { // Process top 5 results per query
             if (result.link && this.isValidUrl(result.link)) {
-                             const eventInfo = this.extractEventInfoFromSnippet(result.snippet || '', result.title || '');
+              const eventInfo = this.extractEventInfoFromSnippet(result.snippet || '', result.title || '');
                
-               // Only include results with future event dates
-               if (eventInfo.hasFutureDate) {
-                 const scrapedData: ScrapedContent = {
-                   id: `serp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                   url: result.link,
-                   title: result.title || 'No title',
-                   content: result.snippet || '',
-                   images: [],
-                   scrapedAt: new Date(),
-                   processingStatus: 'pending',
-                   statusCode: 200,
-                   eventInfo: eventInfo,
-                   contactInfo: this.extractContactInfoFromSnippet(result.snippet || ''),
-                   organizationInfo: this.extractOrgInfoFromSnippet(result.snippet || '', result.title || '')
-                 };
+              // Only include results with future event dates
+              if (eventInfo.hasFutureDate) {
+                const scrapedData: ScrapedContent = {
+                  id: `serp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  url: result.link,
+                  title: result.title || 'No title',
+                  content: result.snippet || '',
+                  images: [],
+                  scrapedAt: new Date(),
+                  processingStatus: 'pending',
+                  statusCode: 200,
+                  eventInfo: eventInfo,
+                  contactInfo: this.extractContactInfoFromSnippet(result.snippet || ''),
+                  organizationInfo: this.extractOrgInfoFromSnippet(result.snippet || '', result.title || '')
+                };
                 
-                 scrapedContent.push(scrapedData);
-                 console.log(`✅ Processed SerpAPI result with future date: ${scrapedData.title} (${eventInfo.date})`);
-               } else {
-                 console.log(`⏭️  Skipping result without future date: ${result.title}`);
-               }
+                batchResults.push(scrapedData);
+                console.log(`✅ Found future event: ${scrapedData.title} (${eventInfo.date})`);
+              } else {
+                console.log(`⏭️  Skipping past event: ${result.title}`);
+              }
             }
           }
           
-          // Rate limiting between queries
-          await new Promise(resolve => setTimeout(resolve, 500)); // Reduced to 500ms with retry logic
+          return batchResults;
           
         } catch (error) {
           console.error(`❌ Search failed for query: ${query.query}`, error);
           query.status = 'failed';
+          return [];
         }
+      });
+      
+      // Wait for batch to complete
+      const batchResults = await Promise.all(batchPromises);
+      
+      // Flatten and add results
+      for (const results of batchResults) {
+        scrapedContent.push(...results);
       }
+      
+      processedQueries += batch.length;
+      console.log(`📊 Processed ${processedQueries}/${limitedQueries.length} queries, found ${scrapedContent.length} potential leads`);
+      
+      // Early termination if we have enough leads
+      if (scrapedContent.length >= targetLeads * 3) {
+        console.log(`🎯 Found ${scrapedContent.length} potential leads, stopping search early`);
+        break;
+      }
+      
+      // Small delay between batches
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
     
+    console.log(`✅ Search completed: ${scrapedContent.length} potential leads from ${processedQueries} queries`);
     return scrapedContent;
   }
 

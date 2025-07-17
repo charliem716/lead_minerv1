@@ -204,7 +204,7 @@ export class SearchAgent {
       throw new Error(`Daily search limit of ${this.dailyLimit} reached`);
     }
 
-    const maxRetries = 3;
+    const maxRetries = 2; // Reduced from 3 to 2 for speed
     let lastError: any;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -243,7 +243,7 @@ export class SearchAgent {
         console.error(`❌ Search attempt ${attempt} failed:`, error);
         
         if (attempt < maxRetries) {
-          const delay = attempt * 2000; // Exponential backoff: 2s, 4s, 6s
+          const delay = attempt * 1000; // Reduced backoff: 1s, 2s
           console.log(`⏳ Retrying in ${delay}ms...`);
           await this.delay(delay);
         }
