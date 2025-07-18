@@ -8,6 +8,7 @@ import { SheetsAgent } from '../agents/sheets-agent';
 import { DateFilter } from '../utils/date-filter';
 import { DeduplicationEngine } from '../utils/deduplication';
 import { PerformanceOptimizer } from '../utils/performance-optimizer';
+import { logger } from '../utils/logging';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -182,6 +183,56 @@ export class PipelineOrchestrator {
       this.results.results.finalLeads = uniqueLeads;
       console.log(`✅ Created ${preliminaryLeads.length} preliminary leads, ${uniqueLeads.length} unique (${preliminaryLeads.length - uniqueLeads.length} duplicates filtered)`);
 
+      // DEBUG: Log lead details
+      console.log(`📋 DEBUG: Preliminary leads: ${preliminaryLeads.map(l => `${l.orgName}(${l.score})`).join(', ')}`);
+      console.log(`📋 DEBUG: Unique leads: ${uniqueLeads.map(l => `${l.orgName}(${l.score})`).join(', ')}`);
+
+      // ENHANCED: Guarantee minimum 5 leads with progressive strategy
+      const minLeadsRequired = 5;
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      while (this.results.results.finalLeads.length < minLeadsRequired && attempts < maxAttempts) {
+        attempts++;
+        logger.warn(`Attempt ${attempts}: Only ${this.results.results.finalLeads.length} leads, need ${minLeadsRequired}+`);
+        
+        // Progressive strategy: lower confidence threshold with each attempt
+        const originalThreshold = config.precision.confidenceThreshold;
+        const tempThreshold = originalThreshold - (0.05 * attempts);
+        logger.info(`Lowering confidence threshold to ${tempThreshold} for attempt ${attempts}`);
+        
+        // Generate additional queries with broader criteria
+        const additionalQueries = await this.generateAdditionalSearchQueries();
+        const moreUniqueQueries = additionalQueries.filter(query => !this.isDuplicateSearchQuery(query));
+        
+        if (moreUniqueQueries.length > 0) {
+          logger.info(`Processing ${moreUniqueQueries.length} additional queries to reach minimum ${minLeadsRequired} leads`);
+          
+          // Process additional queries with relaxed criteria
+          const moreScrapedContent = await this.realSearchAndScrape(moreUniqueQueries);
+          const moreDeduplicatedContent = this.deduplicationEngine.deduplicateBatch(moreScrapedContent);
+          
+          // Temporarily lower confidence threshold for classification
+          const moreClassificationResults = await this.realClassificationWithThreshold(moreDeduplicatedContent, tempThreshold);
+          const moreVerificationResults = await this.realVerification(moreDeduplicatedContent);
+          const moreLeads = await this.createFinalLeads(moreDeduplicatedContent, moreClassificationResults, moreVerificationResults);
+          const moreUniqueLeads = moreLeads.filter(lead => !this.isDuplicateLead(lead));
+          
+          // Add to final results
+          this.results.results.finalLeads.push(...moreUniqueLeads);
+          logger.info(`Found ${moreUniqueLeads.length} additional leads. Total: ${this.results.results.finalLeads.length}`);
+        } else {
+          logger.warn(`No additional unique queries available for attempt ${attempts}`);
+          break;
+        }
+      }
+
+      if (this.results.results.finalLeads.length < minLeadsRequired) {
+        logger.error(`Failed to reach minimum ${minLeadsRequired} leads after ${attempts} attempts. Final count: ${this.results.results.finalLeads.length}`);
+      } else {
+        logger.info(`Successfully reached minimum leads requirement: ${this.results.results.finalLeads.length} leads`);
+      }
+
       // Phase 5: Output to Google Sheets (only unique leads)
       if (this.config.outputToSheets && !this.config.dryRun && uniqueLeads.length > 0) {
         console.log('\n📊 Phase 5: Output to Google Sheets (UNIQUE LEADS ONLY)');
@@ -216,26 +267,49 @@ export class PipelineOrchestrator {
   }
 
   /**
+   * Generate additional search queries to reach a minimum of 5 leads
+   */
+  private async generateAdditionalSearchQueries(): Promise<SearchQuery[]> {
+    const currentLeadCount = this.results.results.finalLeads.length;
+    const targetLeads = 5;
+    const queriesToGenerate = Math.max(0, targetLeads - currentLeadCount);
+
+    if (queriesToGenerate === 0) {
+      console.log(`Already have ${currentLeadCount} leads, no additional queries needed.`);
+      return [];
+    }
+
+    console.log(`Generating additional search queries to reach ${targetLeads} leads.`);
+    const additionalQueries = await this.searchAgent.generateSearchQueries(); // Fixed: removed parameter
+    console.log(`Generated ${additionalQueries.length} additional queries.`);
+    return additionalQueries.slice(0, 10); // Limit to 10 additional queries
+  }
+
+  /**
    * REAL search using SerpAPI content directly with caching and smart rotation
    * Optimized for speed with parallel processing and early termination
    */
   private async realSearchAndScrape(queries: SearchQuery[]): Promise<ScrapedContent[]> {
     const scrapedContent: ScrapedContent[] = [];
     let processedQueries = 0;
-    const maxQueries = 15; // Reduced further for speed
-    const targetLeads = 8; // Reduced target for faster execution
+    const maxQueries = 25; // Increased to ensure enough raw material for 5+ leads
+    // const targetLeads = 15; // Removed artificial limit to allow full query processing
     
     console.log(`🚀 Processing ${Math.min(queries.length, maxQueries)} search queries with caching`);
     
-    // Process queries in smaller parallel batches for speed
-    const batchSize = 3; // Reduced batch size for better control
+    // Process searches in smaller batches for better control
+    const batchSize = 2; // Keep batch size small for control
     const limitedQueries = queries.slice(0, maxQueries);
     
-    for (let i = 0; i < limitedQueries.length && scrapedContent.length < targetLeads * 4; i += batchSize) {
+    for (let i = 0; i < limitedQueries.length; i += batchSize) {
       const batch = limitedQueries.slice(i, i + batchSize);
+      console.log(`\n📦 Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(limitedQueries.length/batchSize)} (${batch.length} queries)`);
+      
+      // Remove early termination - we need more raw material to get 5+ qualified leads
+      // Continue processing until we have enough potential leads for filtering
       
       // Process batch in parallel
-      const batchPromises = batch.map(async (query) => {
+      const batchPromises = batch.map(async (query: SearchQuery) => {
         try {
           console.log(`🔍 Executing search: ${query.query}`);
           
@@ -246,7 +320,7 @@ export class PipelineOrchestrator {
               return await Promise.race([
                 this.searchAgent.executeSearch(query),
                 new Promise<any[]>((_, reject) => 
-                  setTimeout(() => reject(new Error('Search timeout')), 10000) // Reduced timeout
+                  setTimeout(() => reject(new Error('Search timeout')), 15000) // Increased timeout to 15s
                 )
               ]);
             },
@@ -256,7 +330,7 @@ export class PipelineOrchestrator {
           const batchResults: ScrapedContent[] = [];
           
           // Convert SerpAPI results directly to ScrapedContent (no browser needed!)
-          for (const result of searchResults.slice(0, 3)) { // Process top 3 results per query for speed
+          for (const result of searchResults.slice(0, 5)) { // Process top 5 results per query for better diversity
             if (result.link && this.isValidUrl(result.link)) {
               const eventInfo = this.extractEventInfoFromSnippet(result.snippet || '', result.title || '');
           
@@ -304,11 +378,8 @@ export class PipelineOrchestrator {
       processedQueries += batch.length;
       console.log(`📊 Processed ${processedQueries}/${limitedQueries.length} queries, found ${scrapedContent.length} potential leads`);
       
-      // Early termination if we have enough leads
-      if (scrapedContent.length >= targetLeads * 3) {
-        console.log(`🎯 Found ${scrapedContent.length} potential leads, stopping search early`);
-        break;
-      }
+      // Continue processing all queries to ensure diversity and reach minimum 5 leads
+      logger.debug(`Continue processing: ${scrapedContent.length} potential leads found so far`);
       
       // Small delay between batches
       await new Promise(resolve => setTimeout(resolve, 100)); // Reduced delay
@@ -457,6 +528,54 @@ export class PipelineOrchestrator {
         
       } catch (error) {
         console.error(`❌ Classification failed for ${content.title}:`, error);
+      }
+    }
+    
+    return results;
+  }
+
+  /**
+   * REAL classification with custom confidence threshold (for minimum leads guarantee)
+   */
+  private async realClassificationWithThreshold(contents: ScrapedContent[], threshold: number): Promise<ClassificationResult[]> {
+    const results: ClassificationResult[] = [];
+    
+    for (const content of contents) {
+      try {
+        logger.debug(`Classifying with threshold ${threshold}: ${content.title}`);
+        
+        // Use cached operation for classification
+        const classificationResult = await this.performanceOptimizer.cachedOperation(
+          `classification-${content.url}-${content.title}-${threshold}`,
+          () => this.classifierAgent.classifyContent(content),
+          { cost: 0.01 } // Estimated cost per classification
+        );
+        
+        // Apply custom threshold instead of config threshold
+        const isRelevantWithThreshold = classificationResult.confidenceScore >= threshold;
+        
+        // Convert to pipeline ClassificationResult format
+        const pipelineResult: ClassificationResult = {
+          id: classificationResult.id,
+          leadId: content.id,
+          isRelevant: isRelevantWithThreshold,
+          confidenceScore: classificationResult.confidenceScore,
+          hasAuctionKeywords: classificationResult.hasAuctionKeywords,
+          hasTravelKeywords: classificationResult.hasTravelKeywords,
+          reasoning: classificationResult.reasoning,
+          classifiedAt: classificationResult.classifiedAt,
+          modelUsed: classificationResult.modelUsed
+        };
+        
+        results.push(pipelineResult);
+        
+        logger.debug(`Classification complete (threshold ${threshold}): ${pipelineResult.isRelevant ? 'RELEVANT' : 'NOT RELEVANT'} (${(pipelineResult.confidenceScore * 100).toFixed(1)}%)`);
+        
+        // Rate limiting between classifications
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+      } catch (error) {
+        logger.error(`Classification failed for ${content.title}:`, error);
       }
     }
     
