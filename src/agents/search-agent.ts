@@ -18,12 +18,16 @@ export class SearchAgent {
   }
 
   /**
-   * Generate diverse search queries with multiple strategies to maximize results
+   * Generate diverse search queries for nonprofit travel auctions
+   * Uses 10 different search strategies for comprehensive coverage
    */
   generateSearchQueries(): SearchQuery[] {
     const queries: SearchQuery[] = [];
     
-    // Strategy 1: Direct nonprofit event searches (most effective)
+    // Load rotation state to vary queries
+    const rotationState = this.loadRotationState();
+    
+    // Strategy 1: Direct nonprofit event searches (most effective) - rotated
     const directEventQueries = [
       'site:org "travel auction" 2025 OR 2026',
       'site:org "vacation raffle" 2025 OR 2026',
@@ -51,63 +55,62 @@ export class SearchAgent {
       '"youth organization" "travel raffle" 2025 OR 2026'
     ];
 
-    // Strategy 3: Event-specific searches
+    // Strategy 3: Event-specific searches with current month rotation
+    const currentMonth = new Date().getMonth();
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                   'July', 'August', 'September', 'October', 'November', 'December'];
+    const futureMonths = months.slice(currentMonth + 1).concat(months.slice(0, currentMonth + 1));
+    
     const eventQueries = [
-      '"annual gala" "travel packages" 2025 OR 2026',
-      '"benefit dinner" "travel auction" 2025 OR 2026',
-      '"fundraising event" "vacation raffle" 2025 OR 2026',
-      '"charity ball" "travel packages" 2025 OR 2026',
-      '"auction night" "travel" 2025 OR 2026',
-      '"silent auction" "cruise" "vacation" 2025 OR 2026',
-      '"live auction" "travel packages" 2025 OR 2026',
-      '"raffle prizes" "travel" 2025 OR 2026',
-      '"wine auction" "travel packages" 2025 OR 2026',
-      '"art auction" "vacation" 2025 OR 2026'
+      `"annual gala" "travel packages" ${futureMonths[0]} 2025`,
+      `"benefit dinner" "travel auction" ${futureMonths[1]} 2025`,
+      `"fundraising event" "vacation raffle" ${futureMonths[2]} 2025`,
+      `"charity ball" "travel packages" ${futureMonths[0]} 2025`,
+      `"auction night" "travel" ${futureMonths[1]} 2025`,
+      `"silent auction" "cruise" "vacation" ${futureMonths[2]} 2025`,
+      `"live auction" "travel packages" ${futureMonths[0]} 2025`,
+      `"raffle prizes" "travel" ${futureMonths[1]} 2025`,
+      `"wine auction" "travel packages" ${futureMonths[2]} 2025`,
+      `"art auction" "vacation" ${futureMonths[0]} 2025`
     ];
 
-    // Strategy 4: Geographic + event searches
+    // Strategy 4: Geographic + event searches (rotate states)
+    const states = ['California', 'New York', 'Texas', 'Florida', 'Illinois', 'Ohio', 
+                   'North Carolina', 'Georgia', 'Michigan', 'Washington'];
+    const rotatedStates = this.rotateArray(states, rotationState.stateOffset);
+    
     const geographicQueries = [
-      '"California nonprofit" "travel auction" 2025 OR 2026',
-      '"New York charity" "travel raffle" 2025 OR 2026',
-      '"Texas foundation" "travel packages" 2025 OR 2026',
-      '"Florida nonprofit" "vacation auction" 2025 OR 2026',
-      '"Chicago charity" "travel raffle" 2025 OR 2026',
-      '"Los Angeles nonprofit" "travel auction" 2025 OR 2026',
-      '"Boston charity" "vacation raffle" 2025 OR 2026',
-      '"Seattle nonprofit" "travel packages" 2025 OR 2026',
-      '"Denver charity" "travel auction" 2025 OR 2026',
-      '"Atlanta nonprofit" "vacation raffle" 2025 OR 2026'
+      `"${rotatedStates[0]} nonprofit" "travel auction" 2025 OR 2026`,
+      `"${rotatedStates[1]} charity" "travel raffle" 2025 OR 2026`,
+      `"${rotatedStates[2]} foundation" "travel packages" 2025 OR 2026`,
+      `"${rotatedStates[3]} nonprofit" "vacation auction" 2025 OR 2026`,
+      `"${rotatedStates[4]} charity" "travel raffle" 2025 OR 2026`,
+      `"${rotatedStates[5]} nonprofit" "travel auction" 2025 OR 2026`,
+      `"${rotatedStates[6]} charity" "vacation raffle" 2025 OR 2026`,
+      `"${rotatedStates[7]} nonprofit" "travel packages" 2025 OR 2026`,
+      `"${rotatedStates[8]} charity" "travel auction" 2025 OR 2026`,
+      `"${rotatedStates[9]} nonprofit" "vacation raffle" 2025 OR 2026`
     ];
 
-    // Strategy 5: Specific travel types
+    // Strategy 5: Specific travel types (rotate destinations)
+    const travelTypes = ['cruise', 'vacation rental', 'resort package', 'airline tickets', 'hotel stay', 
+                        'Disney trip', 'European vacation', 'Hawaii trip', 'ski vacation', 'beach vacation'];
+    const rotatedTravel = this.rotateArray(travelTypes, rotationState.travelOffset);
+    
     const travelTypeQueries = [
-      '"cruise auction" nonprofit 2025 OR 2026',
-      '"vacation rental" charity auction 2025 OR 2026',
-      '"resort package" nonprofit raffle 2025 OR 2026',
-      '"airline tickets" charity auction 2025 OR 2026',
-      '"hotel stay" nonprofit raffle 2025 OR 2026',
-      '"Disney trip" charity auction 2025 OR 2026',
-      '"European vacation" nonprofit raffle 2025 OR 2026',
-      '"Hawaii trip" charity auction 2025 OR 2026',
-      '"ski vacation" nonprofit raffle 2025 OR 2026',
-      '"beach vacation" charity auction 2025 OR 2026'
+      `"${rotatedTravel[0]}" nonprofit auction 2025 OR 2026`,
+      `"${rotatedTravel[1]}" charity auction 2025 OR 2026`,
+      `"${rotatedTravel[2]}" nonprofit raffle 2025 OR 2026`,
+      `"${rotatedTravel[3]}" charity auction 2025 OR 2026`,
+      `"${rotatedTravel[4]}" nonprofit raffle 2025 OR 2026`,
+      `"${rotatedTravel[5]}" charity auction 2025 OR 2026`,
+      `"${rotatedTravel[6]}" nonprofit raffle 2025 OR 2026`,
+      `"${rotatedTravel[7]}" charity auction 2025 OR 2026`,
+      `"${rotatedTravel[8]}" nonprofit raffle 2025 OR 2026`,
+      `"${rotatedTravel[9]}" charity auction 2025 OR 2026`
     ];
 
-    // Strategy 6: Religious organizations
-    const religiousQueries = [
-      '"church auction" "travel packages" 2025 OR 2026',
-      '"synagogue fundraiser" "vacation" 2025 OR 2026',
-      '"mosque charity" "travel auction" 2025 OR 2026',
-      '"temple fundraising" "travel raffle" 2025 OR 2026',
-      '"parish auction" "vacation packages" 2025 OR 2026',
-      '"cathedral fundraiser" "travel" 2025 OR 2026',
-      '"christian charity" "travel auction" 2025 OR 2026',
-      '"buddhist temple" "travel raffle" 2025 OR 2026',
-      '"hindu temple" "charity auction" 2025 OR 2026',
-      '"faith community" "travel fundraiser" 2025 OR 2026'
-    ];
-
-    // Strategy 7: Healthcare organizations
+    // Strategy 6: Healthcare organizations (most promising)
     const healthcareQueries = [
       '"hospital foundation" "travel auction" 2025 OR 2026',
       '"medical center" "charity raffle" 2025 OR 2026',
@@ -121,7 +124,7 @@ export class SearchAgent {
       '"hospice foundation" "travel packages" 2025 OR 2026'
     ];
 
-    // Strategy 8: Arts and culture
+    // Strategy 7: Arts and culture (high success rate)
     const artsQueries = [
       '"art museum" "travel auction" 2025 OR 2026',
       '"symphony orchestra" "vacation raffle" 2025 OR 2026',
@@ -135,46 +138,15 @@ export class SearchAgent {
       '"performing arts" "vacation auction" 2025 OR 2026'
     ];
 
-    // Strategy 9: Environmental organizations
-    const environmentalQueries = [
-      '"environmental nonprofit" "travel auction" 2025 OR 2026',
-      '"conservation foundation" "vacation raffle" 2025 OR 2026',
-      '"wildlife organization" "travel packages" 2025 OR 2026',
-      '"nature conservancy" "charity auction" 2025 OR 2026',
-      '"environmental foundation" "travel raffle" 2025 OR 2026',
-      '"green organization" "vacation auction" 2025 OR 2026',
-      '"sustainability nonprofit" "travel fundraiser" 2025 OR 2026',
-      '"climate foundation" "charity raffle" 2025 OR 2026',
-      '"eco organization" "travel packages" 2025 OR 2026',
-      '"environmental group" "vacation auction" 2025 OR 2026'
-    ];
-
-    // Strategy 10: Sports and recreation
-    const sportsQueries = [
-      '"youth sports" "travel auction" 2025 OR 2026',
-      '"athletic foundation" "vacation raffle" 2025 OR 2026',
-      '"sports club" "charity auction" 2025 OR 2026',
-      '"recreation center" "travel packages" 2025 OR 2026',
-      '"little league" "travel raffle" 2025 OR 2026',
-      '"soccer club" "vacation auction" 2025 OR 2026',
-      '"basketball foundation" "travel fundraiser" 2025 OR 2026',
-      '"swimming club" "charity raffle" 2025 OR 2026',
-      '"tennis club" "travel packages" 2025 OR 2026',
-      '"golf foundation" "vacation auction" 2025 OR 2026'
-    ];
-
-    // Combine all strategies
+    // Combine strategies with rotation-based selection
     const allQueryStrings = [
-      ...directEventQueries,
-      ...organizationQueries,
-      ...eventQueries,
-      ...geographicQueries,
-      ...travelTypeQueries,
-      ...religiousQueries,
-      ...healthcareQueries,
-      ...artsQueries,
-      ...environmentalQueries,
-      ...sportsQueries
+      ...directEventQueries.slice(0, 5),
+      ...organizationQueries.slice(0, 5),
+      ...eventQueries.slice(0, 5),
+      ...geographicQueries.slice(0, 5),
+      ...travelTypeQueries.slice(0, 5),
+      ...healthcareQueries.slice(0, 5),
+      ...artsQueries.slice(0, 5)
     ];
 
     // Create SearchQuery objects
@@ -190,11 +162,12 @@ export class SearchAgent {
       });
     });
 
-    console.log(`✅ Generated ${queries.length} diverse search queries using multiple strategies`);
+    // Update rotation state for next run
+    this.updateRotationState(rotationState);
+
+    console.log(`✅ Generated ${queries.length} rotated search queries using intelligent diversity`);
     return queries.slice(0, this.dailyLimit); // Respect daily limit
   }
-
-
 
   /**
    * Execute search query via SerpAPI with retry logic
@@ -351,6 +324,57 @@ export class SearchAgent {
    */
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Load rotation state from file
+   */
+  private loadRotationState(): any {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const stateFile = path.join(process.cwd(), 'data', 'pipeline', 'query-rotation.json');
+      
+      if (fs.existsSync(stateFile)) {
+        return JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+      }
+    } catch (error) {
+      console.log('No query rotation state found, starting fresh');
+    }
+    
+    return {
+      stateOffset: 0,
+      travelOffset: 0,
+      lastRotation: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Update rotation state
+   */
+  private updateRotationState(state: any): void {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const stateFile = path.join(process.cwd(), 'data', 'pipeline', 'query-rotation.json');
+      
+      // Increment offsets for next rotation
+      state.stateOffset = (state.stateOffset + 3) % 10;
+      state.travelOffset = (state.travelOffset + 2) % 10;
+      state.lastRotation = new Date().toISOString();
+      
+      fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+    } catch (error) {
+      console.warn('Failed to save query rotation state:', error);
+    }
+  }
+
+  /**
+   * Rotate array elements by offset
+   */
+  private rotateArray<T>(array: T[], offset: number): T[] {
+    const normalizedOffset = offset % array.length;
+    return array.slice(normalizedOffset).concat(array.slice(0, normalizedOffset));
   }
 }
 

@@ -412,6 +412,8 @@ function generateConfigUI() {
         .danger:hover { background: #c0392b; }
         .success { background: #27ae60; }
         .success:hover { background: #229954; }
+        .secondary { background: #95a5a6; }
+        .secondary:hover { background: #7f8c8d; }
         .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
         .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
@@ -420,6 +422,13 @@ function generateConfigUI() {
         .stat-card { background: #ecf0f1; padding: 15px; border-radius: 5px; text-align: center; }
         .stat-number { font-size: 24px; font-weight: bold; color: #2c3e50; }
         .stat-label { color: #7f8c8d; font-size: 14px; }
+        .select-all-container { margin: 10px 0; }
+        .select-all-btn { background: #f39c12; padding: 5px 10px; font-size: 12px; }
+        .select-all-btn:hover { background: #e67e22; }
+        .date-range-container { display: flex; gap: 10px; align-items: center; }
+        .date-range-container input { flex: 1; }
+        .form-row { display: flex; gap: 15px; align-items: center; }
+        .form-row > div { flex: 1; }
     </style>
 </head>
 <body>
@@ -439,7 +448,7 @@ function generateConfigUI() {
                 <div class="stat-label">Months Configured</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">${config.MAX_LEADS_PER_DAY || 'N/A'}</div>
+                <div class="stat-number">${config.MAX_LEADS_PER_DAY || 100}</div>
                 <div class="stat-label">Max Leads/Day</div>
             </div>
             <div class="stat-card">
@@ -453,8 +462,12 @@ function generateConfigUI() {
                 <h3>🌍 Geographic Configuration</h3>
                 <div class="form-group">
                     <label>Search States (Current: ${config.TARGET_STATES || 'None'})</label>
+                    <div class="select-all-container">
+                        <button type="button" class="select-all-btn" onclick="selectAllStates()">Select All States</button>
+                        <button type="button" class="select-all-btn secondary" onclick="clearAllStates()">Clear All</button>
+                    </div>
                     <div class="checkbox-group">
-                        ${['CA', 'NY', 'TX', 'FL', 'WA', 'MA', 'PA', 'IL', 'OH', 'GA', 'CO', 'NC', 'AZ', 'TN', 'IN', 'MO', 'MD', 'WI', 'MN', 'LA'].map(state => `
+                        ${['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'].map(state => `
                             <div class="checkbox-item">
                                 <input type="checkbox" id="state_${state}" name="states" value="${state}" ${(config.TARGET_STATES || '').includes(state) ? 'checked' : ''}>
                                 <label for="state_${state}">${state}</label>
@@ -467,7 +480,25 @@ function generateConfigUI() {
             <div class="section">
                 <h3>📅 Temporal Configuration</h3>
                 <div class="form-group">
+                    <label>Event Date Range</label>
+                    <div class="date-range-container">
+                        <div>
+                            <label for="start_date">Start Date:</label>
+                            <input type="date" id="start_date" name="EVENT_START_DATE" value="${config.EVENT_START_DATE || new Date().toISOString().split('T')[0]}">
+                        </div>
+                        <div>
+                            <label for="end_date">End Date:</label>
+                            <input type="date" id="end_date" name="EVENT_END_DATE" value="${config.EVENT_END_DATE || new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0]}">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
                     <label>Search Months (Current: ${config.SEARCH_MONTHS || 'None'})</label>
+                    <div class="select-all-container">
+                        <button type="button" class="select-all-btn" onclick="selectAllMonths()">Select All Months</button>
+                        <button type="button" class="select-all-btn secondary" onclick="clearAllMonths()">Clear All</button>
+                    </div>
                     <div class="checkbox-group">
                         ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(month => `
                             <div class="checkbox-item">
@@ -480,6 +511,10 @@ function generateConfigUI() {
                 
                 <div class="form-group">
                     <label>Search Quarters</label>
+                    <div class="select-all-container">
+                        <button type="button" class="select-all-btn" onclick="selectAllQuarters()">Select All Quarters</button>
+                        <button type="button" class="select-all-btn secondary" onclick="clearAllQuarters()">Clear All</button>
+                    </div>
                     <div class="checkbox-group">
                         ${['Q1', 'Q2', 'Q3', 'Q4'].map(quarter => `
                             <div class="checkbox-item">
@@ -492,30 +527,75 @@ function generateConfigUI() {
             </div>
 
             <div class="section">
+                <h3>🎯 Search Categories</h3>
+                <div class="form-group">
+                    <label>Organization Types</label>
+                    <div class="select-all-container">
+                        <button type="button" class="select-all-btn" onclick="selectAllOrgTypes()">Select All Types</button>
+                        <button type="button" class="select-all-btn secondary" onclick="clearAllOrgTypes()">Clear All</button>
+                    </div>
+                    <div class="checkbox-group">
+                        ${['Hospitals', 'Schools', 'Museums', 'Churches', 'Nonprofits', 'Foundations', 'Charities', 'Universities', 'Arts Organizations', 'Healthcare'].map(type => `
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="org_${type.replace(/\s+/g, '_')}" name="org_types" value="${type}" ${(config.ORG_TYPES || '').includes(type) ? 'checked' : ''}>
+                                <label for="org_${type.replace(/\s+/g, '_')}">${type}</label>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Event Types</label>
+                    <div class="select-all-container">
+                        <button type="button" class="select-all-btn" onclick="selectAllEventTypes()">Select All Events</button>
+                        <button type="button" class="select-all-btn secondary" onclick="clearAllEventTypes()">Clear All</button>
+                    </div>
+                    <div class="checkbox-group">
+                        ${['Auctions', 'Galas', 'Fundraisers', 'Raffles', 'Benefits', 'Silent Auctions', 'Travel Auctions', 'Charity Events'].map(type => `
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="event_${type.replace(/\s+/g, '_')}" name="event_types" value="${type}" ${(config.EVENT_TYPES || '').includes(type) ? 'checked' : ''}>
+                                <label for="event_${type.replace(/\s+/g, '_')}">${type}</label>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
                 <h3>⚙️ Performance Settings</h3>
-                <div class="form-group">
-                    <label>Max Leads Per Day</label>
-                    <input type="number" name="MAX_LEADS_PER_DAY" value="${config.MAX_LEADS_PER_DAY || 10}" min="1" max="100">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Max Leads Per Day</label>
+                        <input type="number" name="MAX_LEADS_PER_DAY" value="${config.MAX_LEADS_PER_DAY || 100}" min="1" max="500">
+                    </div>
+                    <div class="form-group">
+                        <label>Max Search Queries</label>
+                        <input type="number" name="MAX_SEARCH_QUERIES" value="${config.MAX_SEARCH_QUERIES || 50}" min="10" max="500">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Max Search Queries</label>
-                    <input type="number" name="MAX_SEARCH_QUERIES" value="${config.MAX_SEARCH_QUERIES || 50}" min="10" max="500">
-                </div>
-                <div class="form-group">
-                    <label>Confidence Threshold</label>
-                    <input type="number" name="CONFIDENCE_THRESHOLD" value="${config.CONFIDENCE_THRESHOLD || 0.85}" min="0.1" max="1.0" step="0.05">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Confidence Threshold</label>
+                        <input type="number" name="CONFIDENCE_THRESHOLD" value="${config.CONFIDENCE_THRESHOLD || 0.85}" min="0.1" max="1.0" step="0.05">
+                    </div>
+                    <div class="form-group">
+                        <label>Minimum Future Days</label>
+                        <input type="number" name="MIN_FUTURE_DAYS" value="${config.MIN_FUTURE_DAYS || 14}" min="1" max="365">
+                    </div>
                 </div>
             </div>
 
             <div class="section">
                 <h3>💰 Cost Management</h3>
-                <div class="form-group">
-                    <label>Daily Cost Threshold ($)</label>
-                    <input type="number" name="COST_THRESHOLD_DAILY" value="${config.COST_THRESHOLD_DAILY || 10}" min="1" max="1000" step="0.01">
-                </div>
-                <div class="form-group">
-                    <label>Monthly Cost Threshold ($)</label>
-                    <input type="number" name="COST_THRESHOLD_MONTHLY" value="${config.COST_THRESHOLD_MONTHLY || 100}" min="10" max="10000" step="0.01">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Daily Cost Threshold ($)</label>
+                        <input type="number" name="COST_THRESHOLD_DAILY" value="${config.COST_THRESHOLD_DAILY || 10}" min="1" max="1000" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Monthly Cost Threshold ($)</label>
+                        <input type="number" name="COST_THRESHOLD_MONTHLY" value="${config.COST_THRESHOLD_MONTHLY || 100}" min="10" max="10000" step="0.01">
+                    </div>
                 </div>
             </div>
 
@@ -537,6 +617,39 @@ function generateConfigUI() {
     </div>
 
     <script>
+        // Select All Functions
+        function selectAllStates() {
+            document.querySelectorAll('input[name="states"]').forEach(cb => cb.checked = true);
+        }
+        function clearAllStates() {
+            document.querySelectorAll('input[name="states"]').forEach(cb => cb.checked = false);
+        }
+        function selectAllMonths() {
+            document.querySelectorAll('input[name="months"]').forEach(cb => cb.checked = true);
+        }
+        function clearAllMonths() {
+            document.querySelectorAll('input[name="months"]').forEach(cb => cb.checked = false);
+        }
+        function selectAllQuarters() {
+            document.querySelectorAll('input[name="quarters"]').forEach(cb => cb.checked = true);
+        }
+        function clearAllQuarters() {
+            document.querySelectorAll('input[name="quarters"]').forEach(cb => cb.checked = false);
+        }
+        function selectAllOrgTypes() {
+            document.querySelectorAll('input[name="org_types"]').forEach(cb => cb.checked = true);
+        }
+        function clearAllOrgTypes() {
+            document.querySelectorAll('input[name="org_types"]').forEach(cb => cb.checked = false);
+        }
+        function selectAllEventTypes() {
+            document.querySelectorAll('input[name="event_types"]').forEach(cb => cb.checked = true);
+        }
+        function clearAllEventTypes() {
+            document.querySelectorAll('input[name="event_types"]').forEach(cb => cb.checked = false);
+        }
+
+        // Form submission
         document.getElementById('configForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -547,14 +660,18 @@ function generateConfigUI() {
             const states = Array.from(document.querySelectorAll('input[name="states"]:checked')).map(cb => cb.value);
             const months = Array.from(document.querySelectorAll('input[name="months"]:checked')).map(cb => cb.value);
             const quarters = Array.from(document.querySelectorAll('input[name="quarters"]:checked')).map(cb => cb.value);
+            const orgTypes = Array.from(document.querySelectorAll('input[name="org_types"]:checked')).map(cb => cb.value);
+            const eventTypes = Array.from(document.querySelectorAll('input[name="event_types"]:checked')).map(cb => cb.value);
             
             config.TARGET_STATES = states.join(',');
             config.SEARCH_MONTHS = months.join(',');
             config.SEARCH_QUARTERS = quarters.join(',');
+            config.ORG_TYPES = orgTypes.join(',');
+            config.EVENT_TYPES = eventTypes.join(',');
             
             // Handle other inputs
             for (let [key, value] of formData.entries()) {
-                if (!['states', 'months', 'quarters'].includes(key)) {
+                if (!['states', 'months', 'quarters', 'org_types', 'event_types'].includes(key)) {
                     config[key] = value;
                 }
             }
@@ -598,25 +715,80 @@ function generateConfigUI() {
             try {
                 const response = await fetch('/status');
                 const result = await response.json();
-                showStatus(\`Status: \${result.status}, Uptime: \${Math.floor(result.uptime)}s\`, 'success');
+                showStatus('System status: ' + result.status, 'success');
             } catch (error) {
                 showStatus('Error checking status: ' + error.message, 'error');
             }
         }
 
+        function viewLogs() {
+            window.open('/', '_blank');
+        }
+
         function resetToDefaults() {
-            if (confirm('Reset to default configuration? This will overwrite current settings.')) {
-                location.href = '/config/reset';
+            if (confirm('Are you sure you want to reset all settings to defaults?')) {
+                // Reset to default values
+                document.querySelector('input[name="MAX_LEADS_PER_DAY"]').value = '100';
+                document.querySelector('input[name="MAX_SEARCH_QUERIES"]').value = '50';
+                document.querySelector('input[name="CONFIDENCE_THRESHOLD"]').value = '0.85';
+                document.querySelector('input[name="MIN_FUTURE_DAYS"]').value = '14';
+                document.querySelector('input[name="COST_THRESHOLD_DAILY"]').value = '10';
+                document.querySelector('input[name="COST_THRESHOLD_MONTHLY"]').value = '100';
+                
+                // Clear all checkboxes
+                clearAllStates();
+                clearAllMonths();
+                clearAllQuarters();
+                clearAllOrgTypes();
+                clearAllEventTypes();
+                
+                // Set default dates
+                const today = new Date().toISOString().split('T')[0];
+                const nextYear = new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0];
+                document.getElementById('start_date').value = today;
+                document.getElementById('end_date').value = nextYear;
+                
+                showStatus('Configuration reset to defaults', 'success');
             }
         }
 
         function testConfiguration() {
-            showStatus('Testing configuration...', 'success');
-            // Add configuration validation logic here
+            const states = Array.from(document.querySelectorAll('input[name="states"]:checked')).length;
+            const months = Array.from(document.querySelectorAll('input[name="months"]:checked')).length;
+            const orgTypes = Array.from(document.querySelectorAll('input[name="org_types"]:checked')).length;
+            const eventTypes = Array.from(document.querySelectorAll('input[name="event_types"]:checked')).length;
+            
+            let message = \`Configuration Test Results:\\n\`;
+            message += \`- States selected: \${states}\\n\`;
+            message += \`- Months selected: \${months}\\n\`;
+            message += \`- Organization types: \${orgTypes}\\n\`;
+            message += \`- Event types: \${eventTypes}\\n\`;
+            message += \`- Max leads: \${document.querySelector('input[name="MAX_LEADS_PER_DAY"]').value}\\n\`;
+            
+            if (states === 0) message += '\\n⚠️ Warning: No states selected!';
+            if (months === 0) message += '\\n⚠️ Warning: No months selected!';
+            if (orgTypes === 0) message += '\\n⚠️ Warning: No organization types selected!';
+            if (eventTypes === 0) message += '\\n⚠️ Warning: No event types selected!';
+            
+            alert(message);
         }
+
+        // Set default date range on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const startDate = document.getElementById('start_date');
+            const endDate = document.getElementById('end_date');
+            
+            if (!startDate.value) {
+                startDate.value = new Date().toISOString().split('T')[0];
+            }
+            if (!endDate.value) {
+                endDate.value = new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0];
+            }
+        });
     </script>
 </body>
-</html>`;
+</html>
+  `;
 }
 
 // Simple web server with UI

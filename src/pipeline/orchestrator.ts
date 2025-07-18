@@ -6,6 +6,10 @@ import { ClassifierAgent } from '../agents/classifier-agent';
 import { NonprofitVerifier } from '../agents/nonprofit-verifier';
 import { SheetsAgent } from '../agents/sheets-agent';
 import { DateFilter } from '../utils/date-filter';
+import { DeduplicationEngine } from '../utils/deduplication';
+import { PerformanceOptimizer } from '../utils/performance-optimizer';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface PipelineResult {
   id: string;
@@ -62,6 +66,15 @@ export class PipelineOrchestrator {
   private nonprofitVerifier: NonprofitVerifier;
   private sheetsAgent: SheetsAgent;
   private dateFilter: DateFilter;
+  
+  // NEW: Deduplication and optimization
+  private deduplicationEngine: DeduplicationEngine;
+  private performanceOptimizer: PerformanceOptimizer;
+  private persistenceDir: string;
+  private searchHistoryFile: string;
+  private leadsHistoryFile: string;
+  private searchHistory: Set<string>;
+  private leadsHistory: Map<string, Lead>;
 
   constructor(customConfig?: Partial<PipelineConfig>) {
     this.sessionId = 'pipeline-' + Date.now();
@@ -97,53 +110,85 @@ export class PipelineOrchestrator {
     this.nonprofitVerifier = new NonprofitVerifier();
     this.sheetsAgent = new SheetsAgent();
     this.dateFilter = new DateFilter();
+    
+    // NEW: Initialize deduplication and optimization
+    this.deduplicationEngine = new DeduplicationEngine(0.85); // 85% similarity threshold
+    this.performanceOptimizer = new PerformanceOptimizer();
+    
+    // Setup persistence
+    this.persistenceDir = path.join(process.cwd(), 'data', 'pipeline');
+    this.searchHistoryFile = path.join(this.persistenceDir, 'search-history.json');
+    this.leadsHistoryFile = path.join(this.persistenceDir, 'leads-history.json');
+    this.searchHistory = new Set();
+    this.leadsHistory = new Map();
+    
+    // Ensure persistence directory exists
+    if (!fs.existsSync(this.persistenceDir)) {
+      fs.mkdirSync(this.persistenceDir, { recursive: true });
+    }
+    
+    // Load existing history
+    this.loadSearchHistory();
+    this.loadLeadsHistory();
 
     this.results = this.initializeResults();
-    console.log('🚀 Pipeline Orchestrator initialized with REAL agents');
+    console.log('🚀 Pipeline Orchestrator initialized with REAL agents + DEDUPLICATION + CACHING');
   }
 
   /**
-   * Execute the complete pipeline
+   * Execute the complete pipeline with deduplication and caching
    */
   async execute(): Promise<PipelineResult> {
-    console.log('🚀 Starting Lead-Miner Pipeline Execution (REAL DATA MODE)');
+    console.log('🚀 Starting Lead-Miner Pipeline Execution (OPTIMIZED + DEDUPLICATED)');
     console.log('================================================');
     
     this.results.startTime = new Date();
     
     try {
-      // Phase 1: Generate Search Queries
-      console.log('\n📋 Phase 1: Generating Search Queries');
+      // Phase 1: Generate Search Queries (with deduplication)
+      console.log('\n📋 Phase 1: Generating Search Queries (with deduplication)');
       const searchQueries = await this.generateSearchQueries();
-      this.results.results.searchQueries = searchQueries;
-      console.log(`✅ Generated ${searchQueries.length} search queries`);
+      
+      // Filter out duplicate queries
+      const uniqueQueries = searchQueries.filter(query => !this.isDuplicateSearchQuery(query));
+      this.results.results.searchQueries = uniqueQueries;
+      console.log(`✅ Generated ${searchQueries.length} search queries, ${uniqueQueries.length} unique (${searchQueries.length - uniqueQueries.length} duplicates filtered)`);
 
-      // Phase 2: REAL Search and Scraping
-      console.log('\n🔍 Phase 2: Search and Scraping (REAL DATA)');
-      const scrapedContent = await this.realSearchAndScrape(searchQueries);
-      this.results.results.scrapedContent = scrapedContent;
-      console.log(`✅ Scraped ${scrapedContent.length} pages`);
+      // Phase 2: REAL Search and Scraping (with caching)
+      console.log('\n🔍 Phase 2: Search and Scraping (CACHED + OPTIMIZED)');
+      const scrapedContent = await this.realSearchAndScrape(uniqueQueries);
+      
+      // Deduplicate scraped content
+      const deduplicatedContent = this.deduplicationEngine.deduplicateBatch(scrapedContent);
+      this.results.results.scrapedContent = deduplicatedContent;
+      this.results.results.duplicatesRemoved = scrapedContent.length - deduplicatedContent.length;
+      console.log(`✅ Scraped ${scrapedContent.length} pages, ${deduplicatedContent.length} unique (${this.results.results.duplicatesRemoved} duplicates removed)`);
 
-      // Phase 3: REAL Classification and Verification
-      console.log('\n🤖 Phase 3: Classification and Verification (REAL DATA)');
-      const classificationResults = await this.realClassification(scrapedContent);
+      // Phase 3: REAL Classification and Verification (with caching)
+      console.log('\n🤖 Phase 3: Classification and Verification (CACHED)');
+      const classificationResults = await this.realClassification(deduplicatedContent);
       this.results.results.classificationResults = classificationResults;
       
-      const verificationResults = await this.realVerification(scrapedContent);
+      const verificationResults = await this.realVerification(deduplicatedContent);
       this.results.results.verificationResults = verificationResults;
       console.log(`✅ Classified ${classificationResults.length} items, verified ${verificationResults.length} nonprofits`);
 
-      // Phase 4: Create Final Leads
-      console.log('\n💎 Phase 4: Creating Final Leads');
-      const finalLeads = await this.createFinalLeads(scrapedContent, classificationResults, verificationResults);
-      this.results.results.finalLeads = finalLeads;
-      console.log(`✅ Created ${finalLeads.length} final leads`);
+      // Phase 4: Create Final Leads (with deduplication)
+      console.log('\n💎 Phase 4: Creating Final Leads (with deduplication)');
+      const preliminaryLeads = await this.createFinalLeads(deduplicatedContent, classificationResults, verificationResults);
+      
+      // Filter out duplicate leads based on history
+      const uniqueLeads = preliminaryLeads.filter(lead => !this.isDuplicateLead(lead));
+      this.results.results.finalLeads = uniqueLeads;
+      console.log(`✅ Created ${preliminaryLeads.length} preliminary leads, ${uniqueLeads.length} unique (${preliminaryLeads.length - uniqueLeads.length} duplicates filtered)`);
 
-      // Phase 5: Output to Google Sheets
-      if (this.config.outputToSheets && !this.config.dryRun) {
-        console.log('\n📊 Phase 5: Output to Google Sheets (REAL DATA)');
-        await this.outputToSheets(finalLeads);
+      // Phase 5: Output to Google Sheets (only unique leads)
+      if (this.config.outputToSheets && !this.config.dryRun && uniqueLeads.length > 0) {
+        console.log('\n📊 Phase 5: Output to Google Sheets (UNIQUE LEADS ONLY)');
+        await this.outputToSheets(uniqueLeads);
         console.log('✅ Results written to Google Sheets');
+      } else if (uniqueLeads.length === 0) {
+        console.log('\n📊 Phase 5: No unique leads to output - all were duplicates');
       }
 
       // Calculate final statistics
@@ -151,7 +196,7 @@ export class PipelineOrchestrator {
       
       this.results.endTime = new Date();
       console.log(`\n🎉 Pipeline execution completed in ${this.results.endTime.getTime() - this.results.startTime.getTime()}ms`);
-      console.log(`📊 Final Results: ${this.results.results.finalLeads.length} REAL leads`);
+      console.log(`📊 Final Results: ${this.results.results.finalLeads.length} UNIQUE leads (${this.results.results.duplicatesRemoved} duplicates removed)`);
       
       return this.results;
 
@@ -171,22 +216,22 @@ export class PipelineOrchestrator {
   }
 
   /**
-   * REAL search using SerpAPI content directly (no browser scraping needed)
+   * REAL search using SerpAPI content directly with caching and smart rotation
    * Optimized for speed with parallel processing and early termination
    */
   private async realSearchAndScrape(queries: SearchQuery[]): Promise<ScrapedContent[]> {
     const scrapedContent: ScrapedContent[] = [];
     let processedQueries = 0;
-    const maxQueries = 20; // Limit to first 20 queries for speed
-    const targetLeads = 10; // Stop when we have enough potential leads
+    const maxQueries = 15; // Reduced further for speed
+    const targetLeads = 8; // Reduced target for faster execution
     
-    console.log(`🚀 Processing ${Math.min(queries.length, maxQueries)} search queries in parallel batches`);
+    console.log(`🚀 Processing ${Math.min(queries.length, maxQueries)} search queries with caching`);
     
     // Process queries in smaller parallel batches for speed
-    const batchSize = 5;
+    const batchSize = 3; // Reduced batch size for better control
     const limitedQueries = queries.slice(0, maxQueries);
     
-    for (let i = 0; i < limitedQueries.length && scrapedContent.length < targetLeads * 5; i += batchSize) {
+    for (let i = 0; i < limitedQueries.length && scrapedContent.length < targetLeads * 4; i += batchSize) {
       const batch = limitedQueries.slice(i, i + batchSize);
       
       // Process batch in parallel
@@ -194,18 +239,24 @@ export class PipelineOrchestrator {
         try {
           console.log(`🔍 Executing search: ${query.query}`);
           
-          // Execute real search with timeout
-          const searchResults = await Promise.race([
-            this.searchAgent.executeSearch(query),
-            new Promise<any[]>((_, reject) => 
-              setTimeout(() => reject(new Error('Search timeout')), 15000)
-            )
-          ]);
+          // Use cached operation for search
+          const searchResults = await this.performanceOptimizer.cachedOperation(
+            `search-${query.query}`,
+            async () => {
+              return await Promise.race([
+                this.searchAgent.executeSearch(query),
+                new Promise<any[]>((_, reject) => 
+                  setTimeout(() => reject(new Error('Search timeout')), 10000) // Reduced timeout
+                )
+              ]);
+            },
+            { cost: 0.02, ttl: 3600000 } // Cache for 1 hour
+          );
           
           const batchResults: ScrapedContent[] = [];
           
           // Convert SerpAPI results directly to ScrapedContent (no browser needed!)
-          for (const result of searchResults.slice(0, 5)) { // Process top 5 results per query
+          for (const result of searchResults.slice(0, 3)) { // Process top 3 results per query for speed
             if (result.link && this.isValidUrl(result.link)) {
               const eventInfo = this.extractEventInfoFromSnippet(result.snippet || '', result.title || '');
                
@@ -260,7 +311,7 @@ export class PipelineOrchestrator {
       }
       
       // Small delay between batches
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 100)); // Reduced delay
     }
     
     console.log(`✅ Search completed: ${scrapedContent.length} potential leads from ${processedQueries} queries`);
@@ -368,7 +419,7 @@ export class PipelineOrchestrator {
    }
 
   /**
-   * REAL classification using OpenAI
+   * REAL classification using OpenAI with caching
    */
   private async realClassification(contents: ScrapedContent[]): Promise<ClassificationResult[]> {
     const results: ClassificationResult[] = [];
@@ -377,7 +428,12 @@ export class PipelineOrchestrator {
       try {
         console.log(`🤖 Classifying: ${content.title}`);
         
-        const classificationResult = await this.classifierAgent.classifyContent(content);
+        // Use cached operation for classification
+        const classificationResult = await this.performanceOptimizer.cachedOperation(
+          `classification-${content.url}-${content.title}`,
+          () => this.classifierAgent.classifyContent(content),
+          { cost: 0.01 } // Estimated cost per classification
+        );
         
         // Convert to pipeline ClassificationResult format
         const pipelineResult: ClassificationResult = {
@@ -397,7 +453,7 @@ export class PipelineOrchestrator {
         console.log(`✅ Classification complete: ${pipelineResult.isRelevant ? 'RELEVANT' : 'NOT RELEVANT'} (${(pipelineResult.confidenceScore * 100).toFixed(1)}%)`);
         
         // Rate limiting between classifications
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500)); // Reduced from 1000ms
         
       } catch (error) {
         console.error(`❌ Classification failed for ${content.title}:`, error);
@@ -408,7 +464,7 @@ export class PipelineOrchestrator {
   }
 
   /**
-   * REAL nonprofit verification with unique EIN handling
+   * REAL nonprofit verification with unique EIN handling and caching
    */
   private async realVerification(contents: ScrapedContent[]): Promise<NonprofitVerification[]> {
     const verifications: NonprofitVerification[] = [];
@@ -417,9 +473,11 @@ export class PipelineOrchestrator {
       try {
         console.log(`🏛️ Verifying nonprofit: ${content.organizationInfo?.name}`);
         
-        // Use verifyByName method which exists in NonprofitVerifier
-        const verificationResult = await this.nonprofitVerifier.verifyByName(
-          content.organizationInfo?.name || 'Unknown'
+        // Use cached operation for verification
+        const verificationResult = await this.performanceOptimizer.cachedOperation(
+          `verification-${content.organizationInfo?.name}`,
+          () => this.nonprofitVerifier.verifyByName(content.organizationInfo?.name || 'Unknown'),
+          { cost: 0.005 } // Estimated cost per verification
         );
         
         // Create verification record for each content item, regardless of success/failure
@@ -438,7 +496,7 @@ export class PipelineOrchestrator {
         console.log(`✅ Verification complete: ${verification.isVerified ? 'VERIFIED' : 'NOT VERIFIED'} - EIN: ${verification.ein || 'N/A'}`);
         
         // Rate limiting between verifications
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300)); // Reduced from 500ms
         
       } catch (error) {
         console.error(`❌ Verification failed for ${content.organizationInfo?.name}:`, error);
@@ -651,6 +709,76 @@ export class PipelineOrchestrator {
     const phases = ['Search Queries', 'Scraping', 'Classification', 'Verification', 'Final Leads', 'Output'];
     
     return phases[Math.floor(progress * phases.length)] || 'Starting';
+  }
+
+  /**
+   * Load search history from file
+   */
+  private loadSearchHistory(): void {
+    if (fs.existsSync(this.searchHistoryFile)) {
+      const historyData = JSON.parse(fs.readFileSync(this.searchHistoryFile, 'utf8'));
+      this.searchHistory = new Set(historyData);
+      console.log(`Loaded ${this.searchHistory.size} unique search queries from history.`);
+    } else {
+      console.log('No search history file found.');
+    }
+  }
+
+  /**
+   * Load leads history from file
+   */
+  private loadLeadsHistory(): void {
+    if (fs.existsSync(this.leadsHistoryFile)) {
+      const historyData = JSON.parse(fs.readFileSync(this.leadsHistoryFile, 'utf8'));
+      this.leadsHistory = new Map(Object.entries(historyData));
+      console.log(`Loaded ${this.leadsHistory.size} unique leads from history.`);
+    } else {
+      console.log('No leads history file found.');
+    }
+  }
+
+  /**
+   * Save search history to file
+   */
+  private saveSearchHistory(): void {
+    fs.writeFileSync(this.searchHistoryFile, JSON.stringify(Array.from(this.searchHistory)));
+    console.log(`Saved ${this.searchHistory.size} unique search queries to history.`);
+  }
+
+  /**
+   * Save leads history to file
+   */
+  private saveLeadsHistory(): void {
+    fs.writeFileSync(this.leadsHistoryFile, JSON.stringify(Object.fromEntries(this.leadsHistory)));
+    console.log(`Saved ${this.leadsHistory.size} unique leads to history.`);
+  }
+
+  /**
+   * Add a search query to history and return if it's a duplicate
+   */
+  private isDuplicateSearchQuery(query: SearchQuery): boolean {
+    const queryString = JSON.stringify(query);
+    if (this.searchHistory.has(queryString)) {
+      console.log(`Skipping duplicate search query: ${query.query}`);
+      return true;
+    }
+    this.searchHistory.add(queryString);
+    this.saveSearchHistory();
+    return false;
+  }
+
+  /**
+   * Add a lead to history and return if it's a duplicate
+   */
+  private isDuplicateLead(lead: Lead): boolean {
+    const leadString = JSON.stringify(lead);
+    if (this.leadsHistory.has(leadString)) {
+      console.log(`Skipping duplicate lead: ${lead.orgName} (${lead.ein})`);
+      return true;
+    }
+    this.leadsHistory.set(leadString, lead);
+    this.saveLeadsHistory();
+    return false;
   }
 }
 
