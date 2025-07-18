@@ -325,15 +325,16 @@ Return true if human review is recommended.
 
   /**
    * Create fallback classification when OpenAI fails
+   * AGGRESSIVE: Much more generous to capture all potential leads
    */
   private createFallbackClassification(content: ScrapedContent): Partial<ClassificationResult> {
     const text = `${content.title} ${content.content}`.toLowerCase();
     
-    // Simple keyword-based classification
-    const hasAuction = /auction|raffle|gala|fundraiser|benefit/.test(text);
-    const hasTravel = /travel|vacation|cruise|trip|resort|getaway/.test(text);
-    const hasNonprofit = /nonprofit|charity|foundation|501c3|school|university|church/.test(text);
-    const hasB2B = /we provide|our services|contact for|pricing|vendor/.test(text);
+    // AGGRESSIVE: Expanded keyword detection with more patterns
+    const hasAuction = /auction|raffle|gala|fundraiser|benefit|silent auction|live auction|charity auction|travel auction|vacation raffle|prize drawing|sweepstakes|contest|bid|bidding|donate|donation|give|giving|support|help|raise funds|annual event|special event/.test(text);
+    const hasTravel = /travel|vacation|cruise|trip|resort|getaway|hotel|flight|airline|disney|hawaii|europe|caribbean|ski|beach|tour|package|destination|stay|visit|experience|adventure|journey|retreat|spa|casino|golf|wine|dining/.test(text);
+    const hasNonprofit = /nonprofit|non-profit|charity|foundation|501c3|501\(c\)\(3\)|school|university|church|hospital|museum|ymca|rotary|lions club|kiwanis|community center|food bank|pta|pto|education|health|medical|children|kids|family|community|volunteer|mission|cause/.test(text);
+    const hasB2B = /we provide|our services|contact for pricing|vendor|supplier|company|corporation|llc|inc\.|profit|business|commercial|enterprise|firm|agency|consulting|marketing|sales|revenue|clients|customers/.test(text);
     
     // Enhanced keyword detection
     const enhancedKeywords = this.enhanceKeywordDetection(content, {});
@@ -341,18 +342,36 @@ Return true if human review is recommended.
     // Business model detection
     const businessModel = this.detectBusinessModel(content, enhancedKeywords);
     
-    // Calculate confidence based on keyword presence
-    let confidence = 0;
-    if (hasAuction) confidence += 0.3;
-    if (hasTravel) confidence += 0.3;
-    if (hasNonprofit) confidence += 0.4;
-    if (hasB2B) confidence -= 0.5; // Penalize B2B indicators
+    // AGGRESSIVE: Much more generous confidence calculation
+    let confidence = 0.25; // Higher base confidence
+    
+    // Very generous scoring for any auction/fundraising indicators
+    if (hasAuction) confidence += 0.45; // Increased significantly
+    if (hasTravel) confidence += 0.35; // Increased
+    if (hasNonprofit) confidence += 0.30; // Increased
+    
+    // Extra bonuses for strong combinations
+    if (hasAuction && hasTravel) confidence += 0.20; // Bonus for combination
+    if (hasNonprofit && hasAuction) confidence += 0.15; // Bonus for nonprofit + auction
+    
+    // Additional bonuses for specific keywords
+    if (text.includes('travel auction') || text.includes('vacation raffle') || text.includes('travel raffle')) confidence += 0.25;
+    if (text.includes('charity') || text.includes('foundation') || text.includes('nonprofit')) confidence += 0.15;
+    if (text.includes('fundraiser') || text.includes('benefit') || text.includes('gala')) confidence += 0.15;
+    if (text.includes('school') || text.includes('hospital') || text.includes('church')) confidence += 0.10;
+    
+    // Reduced penalty for B2B indicators
+    if (hasB2B) confidence -= 0.20; // Much reduced penalty
     
     confidence = Math.max(0, Math.min(1, confidence));
     
-    const isRelevant = hasAuction && hasTravel && hasNonprofit && !hasB2B && confidence >= 0.5;
+    // AGGRESSIVE: Much more lenient relevance criteria
+    const isRelevant = (hasAuction && hasTravel) || // Just need auction + travel
+                      (hasAuction && hasNonprofit) || // Or auction + nonprofit
+                      (confidence >= 0.25); // Or any decent confidence
     
-    console.log(`Fallback classification: ${isRelevant ? 'RELEVANT' : 'NOT RELEVANT'} (${confidence.toFixed(2)}) - ${content.url}`);
+    console.log(`AGGRESSIVE Fallback classification: ${isRelevant ? 'RELEVANT' : 'NOT RELEVANT'} (${confidence.toFixed(2)}) - ${content.url}`);
+    console.log(`  Keywords found: auction=${hasAuction}, travel=${hasTravel}, nonprofit=${hasNonprofit}, b2b=${hasB2B}`);
     
     return {
       isRelevant,
@@ -361,7 +380,7 @@ Return true if human review is recommended.
       hasTravelKeywords: hasTravel,
       isNonprofit: hasNonprofit,
       businessModel,
-      reasoning: 'Fallback classification due to API error - keyword-based analysis',
+      reasoning: `AGGRESSIVE fallback classification - Enhanced keyword analysis (auction=${hasAuction}, travel=${hasTravel}, nonprofit=${hasNonprofit})`,
       keywordMatches: enhancedKeywords,
       dateRelevance: this.checkDateRelevance(content),
       geographicRelevance: this.checkGeographicRelevance(content)

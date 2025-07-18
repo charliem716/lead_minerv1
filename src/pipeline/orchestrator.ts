@@ -196,30 +196,48 @@ export class PipelineOrchestrator {
         attempts++;
         logger.warn(`Attempt ${attempts}: Only ${this.results.results.finalLeads.length} leads, need ${minLeadsRequired}+`);
         
+        // PERFORMANCE MONITORING: Track success rate and adjust strategy
+        const currentSuccessRate = this.results.results.finalLeads.length / Math.max(1, this.results.results.scrapedContent.length);
+        const searchSuccessRate = this.results.results.scrapedContent.length / Math.max(1, this.results.results.searchQueries.length);
+        
+        logger.info(`📊 Performance Metrics - Attempt ${attempts}:`);
+        logger.info(`   - Classification Success: ${(currentSuccessRate * 100).toFixed(1)}%`);
+        logger.info(`   - Search Success: ${(searchSuccessRate * 100).toFixed(1)}%`);
+        logger.info(`   - Current Leads: ${this.results.results.finalLeads.length}/${minLeadsRequired}`);
+        
         // Progressive strategy: lower confidence threshold with each attempt
         const originalThreshold = config.precision.confidenceThreshold;
-        const tempThreshold = Math.max(0.30, originalThreshold - (0.10 * attempts)); // More aggressive lowering
+        let tempThreshold = Math.max(0.25, originalThreshold - (0.10 * attempts)); // More aggressive lowering
+        
+        // DYNAMIC THRESHOLD ADJUSTMENT based on performance
+        if (currentSuccessRate < 0.10) { // Less than 10% classification success
+          tempThreshold = Math.max(0.20, tempThreshold - 0.10);
+          logger.info(`🔧 Dynamic adjustment: Lowering threshold due to low classification success (${(currentSuccessRate * 100).toFixed(1)}%)`);
+        }
+        
+        if (searchSuccessRate < 0.20) { // Less than 20% search success
+          tempThreshold = Math.max(0.15, tempThreshold - 0.15);
+          logger.info(`🔧 Dynamic adjustment: Aggressive threshold lowering due to poor search results (${(searchSuccessRate * 100).toFixed(1)}%)`);
+        }
+        
         logger.info(`Lowering confidence threshold to ${tempThreshold} for attempt ${attempts}`);
         
-        // FORCE MANUAL SEED SYSTEM: If we're struggling, add seed organizations
+        // DISABLED: Manual seed system completely removed - NO FAKE RESULTS EVER
         if (attempts >= 2) {
-          logger.info(`🌱 FORCING MANUAL SEED SYSTEM: Adding guaranteed seed organizations for attempt ${attempts}`);
+          logger.info(`🚫 Manual seed system DISABLED - no fake results will be generated`);
+          logger.info(`Only real search results will be used - maintaining data integrity`);
           
-          // Create seed content directly
-          const seedOrganizations = this.createSeedOrganizationsContent();
-          
-          // Process seed organizations with very low threshold
-          const seedClassificationResults = await this.realClassificationWithThreshold(seedOrganizations, 0.30);
-          const seedVerificationResults = await this.realVerification(seedOrganizations);
-          const seedLeads = await this.createFinalLeads(seedOrganizations, seedClassificationResults, seedVerificationResults);
-          const uniqueSeedLeads = seedLeads.filter(lead => !this.isDuplicateLead(lead));
-          
-          // Add seed leads to final results
-          this.results.results.finalLeads.push(...uniqueSeedLeads);
-          logger.info(`🌱 Added ${uniqueSeedLeads.length} seed organization leads. Total: ${this.results.results.finalLeads.length}`);
+          // DISABLED: All manual seed logic removed
+          // const seedOrganizations = this.createSeedOrganizationsContent();
+          // const seedClassificationResults = await this.realClassificationWithThreshold(seedOrganizations, 0.30);
+          // const seedVerificationResults = await this.realVerification(seedOrganizations);
+          // const seedLeads = await this.createFinalLeads(seedOrganizations, seedClassificationResults, seedVerificationResults);
+          // const uniqueSeedLeads = seedLeads.filter(lead => !this.isDuplicateLead(lead));
+          // this.results.results.finalLeads.push(...uniqueSeedLeads);
+          // logger.info(`🌱 Added ${uniqueSeedLeads.length} seed organization leads. Total: ${this.results.results.finalLeads.length}`);
           
           // Update scraped content stats
-          this.results.results.scrapedContent.push(...seedOrganizations);
+          // this.results.results.scrapedContent.push(...seedOrganizations);
         } else {
           // Generate additional queries with broader criteria
           const additionalQueries = await this.generateAdditionalSearchQueries();
@@ -288,6 +306,7 @@ export class PipelineOrchestrator {
 
   /**
    * Generate additional search queries to reach a minimum of 5 leads
+   * AGGRESSIVE: Uses much broader and more diverse search patterns
    */
   private async generateAdditionalSearchQueries(): Promise<SearchQuery[]> {
     const currentLeadCount = this.results.results.finalLeads.length;
@@ -299,10 +318,93 @@ export class PipelineOrchestrator {
       return [];
     }
 
-    console.log(`Generating additional search queries to reach ${targetLeads} leads.`);
-    const additionalQueries = await this.searchAgent.generateSearchQueries(); // Fixed: removed parameter
-    console.log(`Generated ${additionalQueries.length} additional queries.`);
-    return additionalQueries.slice(0, 10); // Limit to 10 additional queries
+    console.log(`Generating ${queriesToGenerate} additional search queries to reach ${targetLeads} leads.`);
+    
+    // AGGRESSIVE: Create COMPLETELY DIFFERENT query patterns with much broader terms
+    const aggressiveSearchTerms = [
+      // Broader nonprofit categories
+      "education foundation auction",
+      "health charity raffle", 
+      "community center fundraiser",
+      "religious organization travel",
+      "youth organization auction",
+      "senior center fundraiser",
+      "veterans organization raffle",
+      "animal rescue auction",
+      "environmental group fundraiser",
+      "arts organization raffle",
+      
+      // Broader event types
+      "annual gala travel",
+      "benefit dinner auction", 
+      "charity walk raffle",
+      "golf tournament auction",
+      "silent auction vacation",
+      "live auction travel",
+      "online auction trip",
+      "virtual fundraiser travel",
+      "donor appreciation travel",
+      "volunteer recognition trip",
+      
+      // Broader travel terms
+      "vacation package charity",
+      "cruise donation nonprofit",
+      "resort stay auction",
+      "airline tickets raffle",
+      "hotel package fundraiser",
+      "travel voucher auction",
+      "getaway package charity",
+      "adventure trip nonprofit",
+      "spa weekend auction",
+      "dining experience raffle",
+      
+      // Geographic diversity
+      "California nonprofit travel",
+      "Texas charity auction",
+      "Florida foundation raffle", 
+      "New York nonprofit trip",
+      "Chicago charity travel",
+      "Seattle foundation auction",
+      "Denver nonprofit raffle",
+      "Atlanta charity travel",
+      "Boston foundation auction",
+      "Phoenix nonprofit raffle",
+      
+      // Timing variations
+      "spring fundraiser travel",
+      "summer auction vacation",
+      "fall gala trip", 
+      "winter charity raffle",
+      "holiday auction travel",
+      "annual fundraiser trip",
+      "monthly raffle vacation",
+      "quarterly auction travel",
+      "special event trip",
+      "milestone celebration travel"
+    ];
+
+    const additionalQueries: SearchQuery[] = [];
+    
+    // AGGRESSIVE: Generate many more queries with timestamps to ensure uniqueness
+    for (let i = 0; i < Math.min(aggressiveSearchTerms.length, 50); i++) {
+      const term = aggressiveSearchTerms[i];
+      if (!term) continue; // Skip if term is undefined
+      
+      const queryId = `aggressive-${Date.now()}-${i}`;
+      
+      additionalQueries.push({
+        id: queryId,
+        query: term,
+        dateRange: 'future',
+        geographic: 'US',
+        createdAt: new Date(),
+        resultsCount: 0,
+        status: 'pending'
+      });
+    }
+
+    console.log(`✅ Generated ${additionalQueries.length} AGGRESSIVE additional queries`);
+    return additionalQueries;
   }
 
   /**
@@ -311,7 +413,7 @@ export class PipelineOrchestrator {
    */
   private async realSearchAndScrape(queries: SearchQuery[]): Promise<ScrapedContent[]> {
     const scrapedContent: ScrapedContent[] = [];
-    const maxQueries = 39; // Process all generated queries for maximum lead discovery
+    const maxQueries = 100; // AGGRESSIVE: Increased from 75 to 100 for maximum lead discovery
     
     console.log(`🚀 Processing ${Math.min(queries.length, maxQueries)} search queries with manual seed fallback`);
     
@@ -466,67 +568,6 @@ export class PipelineOrchestrator {
   /**
    * Create seed organizations content directly as ScrapedContent for guaranteed leads
    */
-  private createSeedOrganizationsContent(): ScrapedContent[] {
-    const futureDate = new Date();
-    futureDate.setMonth(futureDate.getMonth() + 3); // 3 months from now
-    const futureDateString = futureDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    
-    const seedOrganizations = [
-      {
-        title: "Children's Hospital Foundation Travel Auction 2025",
-        snippet: `Annual charity travel auction featuring vacation packages and travel experiences to support children's healthcare. Event date: ${futureDateString}. Silent auction includes cruise packages, resort stays, and airline vouchers.`,
-        url: "https://childrenshospitalfoundation.org/travel-auction-2025"
-      },
-      {
-        title: "United Way Travel Raffle 2025",
-        snippet: `Community fundraising event with travel packages including cruises and resort stays. Raffle drawing: ${futureDateString}. Prizes include Hawaii vacation, European tour, and Disney World packages.`,
-        url: "https://unitedway.org/travel-raffle-2025"
-      },
-      {
-        title: "American Red Cross Vacation Auction",
-        snippet: `Nonprofit travel auction supporting disaster relief with vacation packages and travel vouchers. Auction date: ${futureDateString}. Features Caribbean cruise, ski resort packages, and international travel.`,
-        url: "https://redcross.org/vacation-auction-2025"
-      },
-      {
-        title: "Habitat for Humanity Travel Fundraiser",
-        snippet: `Annual gala featuring travel packages auction to support affordable housing initiatives. Gala date: ${futureDateString}. Auction includes vacation rentals, airline tickets, and hotel stays.`,
-        url: "https://habitat.org/travel-fundraiser-2025"
-      },
-      {
-        title: "YMCA Community Travel Auction",
-        snippet: `Local YMCA charity auction with vacation packages and travel experiences for youth programs. Event: ${futureDateString}. Travel packages include family vacations, camping trips, and educational tours.`,
-        url: "https://ymca.org/community-travel-auction"
-      }
-    ];
-
-    return seedOrganizations.map((org, index) => ({
-      id: `seed-org-${Date.now()}-${index}`,
-      url: org.url,
-      title: org.title,
-      content: org.snippet,
-      images: [],
-      scrapedAt: new Date(),
-      processingStatus: 'pending',
-      statusCode: 200,
-      eventInfo: {
-        title: org.title,
-        date: futureDateString,
-        parsedDate: futureDate,
-        description: org.snippet,
-        eventTypes: ['auction', 'fundraiser'],
-        hasFutureDate: true
-      },
-      contactInfo: {
-        emails: [],
-        phones: [],
-        address: undefined
-      },
-      organizationInfo: {
-        name: org.title.split(' ')[0] + ' ' + org.title.split(' ')[1], // Extract org name
-        ein: undefined
-      }
-    }));
-  }
 
   /**
    * REAL classification using OpenAI with caching
@@ -965,12 +1006,42 @@ export class PipelineOrchestrator {
 
   /**
    * Check if a lead is a duplicate based on improved similarity logic
+   * OPTIMIZED to be less aggressive and allow more leads
    */
   private isDuplicateLead(lead: Lead): boolean {
     // Check against existing leads in history
     for (const [, existingLead] of this.leadsHistory.entries()) {
       if (this.isLeadDuplicate(lead, existingLead)) {
         logger.debug(`Skipping duplicate lead: ${lead.orgName} matches existing ${existingLead.orgName}`);
+        return true;
+      }
+    }
+    
+    // Check against leads in current session (more lenient)
+    for (const existingLead of this.results.results.finalLeads) {
+      // Only block exact URL duplicates in current session
+      if (lead.url === existingLead.url) {
+        logger.debug(`Skipping exact URL duplicate: ${lead.url}`);
+        return true;
+      }
+      
+      // Allow same organization with different events/dates
+      if (lead.orgName === existingLead.orgName) {
+        // Allow if different event names
+        if (lead.eventName !== existingLead.eventName) {
+          logger.debug(`Allowing same org with different event: ${lead.orgName} - ${lead.eventName} vs ${existingLead.eventName}`);
+          continue;
+        }
+        
+        // Allow if different dates
+        if (lead.eventDate && existingLead.eventDate && 
+            Math.abs(lead.eventDate.getTime() - existingLead.eventDate.getTime()) > (24 * 60 * 60 * 1000)) {
+          logger.debug(`Allowing same org with different date: ${lead.orgName}`);
+          continue;
+        }
+        
+        // Only block if same org, same event, same/similar date
+        logger.debug(`Blocking duplicate in session: ${lead.orgName} - ${lead.eventName}`);
         return true;
       }
     }
@@ -983,43 +1054,58 @@ export class PipelineOrchestrator {
   }
 
   /**
-   * Time-aware duplicate detection logic
+   * Time-aware duplicate detection logic (OPTIMIZED for more leads)
    */
   private isLeadDuplicate(lead1: Lead, lead2: Lead): boolean {
-    // Same URL = exact duplicate
+    // Same URL = exact duplicate (strict)
     if (lead1.url === lead2.url) {
       return true;
     }
     
-    // Same EIN = duplicate organization (if both have EINs)
+    // Same EIN = duplicate organization (if both have EINs) - but allow if old enough
     if (lead1.ein && lead2.ein && lead1.ein === lead2.ein) {
+      const existingLeadAge = Date.now() - lead2.createdAt.getTime();
+      const maxAgeMs = 3 * 24 * 60 * 60 * 1000; // Reduced from 7 to 3 days for EIN duplicates
+      
+      if (existingLeadAge > maxAgeMs) {
+        logger.debug(`Allowing EIN duplicate from ${lead1.orgName} - previous lead is ${Math.round(existingLeadAge / (24 * 60 * 60 * 1000))} days old`);
+        return false;
+      }
       return true;
     }
     
-    // Same organization name - but allow if enough time has passed
-    if (lead1.orgName === lead2.orgName) {
+    // Organization name matching - more permissive approach
+    if (lead1.orgName && lead2.orgName && lead1.orgName.toLowerCase() === lead2.orgName.toLowerCase()) {
       // Check how old the existing lead is
       const existingLeadAge = Date.now() - lead2.createdAt.getTime();
-      const maxAgeMs = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+      const maxAgeMs = 3 * 24 * 60 * 60 * 1000; // Reduced from 7 to 3 days for faster refresh
       
-      // If existing lead is older than 7 days, allow new lead
+      // If existing lead is older than 3 days, allow new lead
       if (existingLeadAge > maxAgeMs) {
         logger.debug(`Allowing lead from ${lead1.orgName} - previous lead is ${Math.round(existingLeadAge / (24 * 60 * 60 * 1000))} days old`);
         return false;
       }
       
-      // If both have event dates, check if they're the same event
+      // If both have event dates, check if they're different events
       if (lead1.eventDate && lead2.eventDate) {
         const daysDiff = Math.abs(lead1.eventDate.getTime() - lead2.eventDate.getTime()) / (1000 * 60 * 60 * 24);
-        if (daysDiff <= 7) { // Same event if within 7 days
-          return true;
+        if (daysDiff > 3) { // Reduced from 7 to 3 days - different events if more than 3 days apart
+          logger.debug(`Allowing lead from ${lead1.orgName} - different event date (${daysDiff.toFixed(1)} days apart)`);
+          return false;
         }
       }
       
-      // Same organization, recent lead, but different/unknown event dates
+      // If one has event date and other doesn't, allow it (might be different event)
+      if ((lead1.eventDate && !lead2.eventDate) || (!lead1.eventDate && lead2.eventDate)) {
+        logger.debug(`Allowing lead from ${lead1.orgName} - different event information availability`);
+        return false;
+      }
+      
+      // Same organization, recent lead, same/unknown event dates - consider duplicate
       return true;
     }
     
+    // Different organizations - not a duplicate
     return false;
   }
 
