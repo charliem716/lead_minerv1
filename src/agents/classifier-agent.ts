@@ -243,33 +243,52 @@ Return true if human review is recommended.
   }
 
   /**
-   * Perform primary classification with enhanced business model detection
+   * Perform primary classification with enhanced business model detection and better error handling
    */
   private async performPrimaryClassification(content: ScrapedContent): Promise<Partial<ClassificationResult>> {
     const analysisText = this.prepareContentForAnalysis(content);
     
-    const response = await this.openaiClient.chat.completions.create({
-                model: 'gpt-4o-mini', // Using reasoning model for complex classification
-      messages: [{
-        role: 'system',
-        content: this.classificationPrompts.primary + analysisText
-      }],
-      temperature: 0.1, // Low temperature for consistent results
-      max_tokens: 600
-    });
-    
     try {
+      const response = await Promise.race([
+        this.openaiClient.chat.completions.create({
+          model: 'gpt-4o-mini', // Using reasoning model for complex classification
+          messages: [{
+            role: 'system',
+            content: this.classificationPrompts.primary + analysisText
+          }],
+          temperature: 0.1, // Low temperature for consistent results
+          max_tokens: 600
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Classification timeout after 30 seconds')), 30000)
+        )
+      ]) as any;
+      
       const messageContent = response.choices[0]?.message?.content;
       if (!messageContent) {
-        throw new Error('No content in OpenAI response');
+        console.warn('Empty response from OpenAI, using fallback classification');
+        return this.createFallbackClassification(content);
       }
       
       // Clean markdown code blocks from OpenAI response
       const cleanedContent = this.cleanMarkdownFromResponse(messageContent);
-      const result = JSON.parse(cleanedContent);
+      
+      let result;
+      try {
+        result = JSON.parse(cleanedContent);
+      } catch (parseError) {
+        console.warn('Failed to parse OpenAI response, using fallback classification:', parseError);
+        return this.createFallbackClassification(content);
+      }
+      
+      // Validate required fields
+      if (typeof result.isRelevant !== 'boolean' || typeof result.confidenceScore !== 'number') {
+        console.warn('Invalid response structure, using fallback classification');
+        return this.createFallbackClassification(content);
+      }
       
       // Enhanced keyword detection with business model patterns
-      const enhancedKeywords = this.enhanceKeywordDetection(content, result.keywordMatches);
+      const enhancedKeywords = this.enhanceKeywordDetection(content, result.keywordMatches || {});
       
       // Business model detection
       const businessModel = this.detectBusinessModel(content, enhancedKeywords);
@@ -298,10 +317,55 @@ Return true if human review is recommended.
         confidenceScore: adjustedConfidence
       };
       
-    } catch (parseError) {
-      console.error('Failed to parse classification response:', parseError);
-      throw new Error('Invalid classification response format');
+    } catch (apiError) {
+      console.error('OpenAI API error, using fallback classification:', apiError);
+      return this.createFallbackClassification(content);
     }
+  }
+
+  /**
+   * Create fallback classification when OpenAI fails
+   */
+  private createFallbackClassification(content: ScrapedContent): Partial<ClassificationResult> {
+    const text = `${content.title} ${content.content}`.toLowerCase();
+    
+    // Simple keyword-based classification
+    const hasAuction = /auction|raffle|gala|fundraiser|benefit/.test(text);
+    const hasTravel = /travel|vacation|cruise|trip|resort|getaway/.test(text);
+    const hasNonprofit = /nonprofit|charity|foundation|501c3|school|university|church/.test(text);
+    const hasB2B = /we provide|our services|contact for|pricing|vendor/.test(text);
+    
+    // Enhanced keyword detection
+    const enhancedKeywords = this.enhanceKeywordDetection(content, {});
+    
+    // Business model detection
+    const businessModel = this.detectBusinessModel(content, enhancedKeywords);
+    
+    // Calculate confidence based on keyword presence
+    let confidence = 0;
+    if (hasAuction) confidence += 0.3;
+    if (hasTravel) confidence += 0.3;
+    if (hasNonprofit) confidence += 0.4;
+    if (hasB2B) confidence -= 0.5; // Penalize B2B indicators
+    
+    confidence = Math.max(0, Math.min(1, confidence));
+    
+    const isRelevant = hasAuction && hasTravel && hasNonprofit && !hasB2B && confidence >= 0.5;
+    
+    console.log(`Fallback classification: ${isRelevant ? 'RELEVANT' : 'NOT RELEVANT'} (${confidence.toFixed(2)}) - ${content.url}`);
+    
+    return {
+      isRelevant,
+      confidenceScore: confidence,
+      hasAuctionKeywords: hasAuction,
+      hasTravelKeywords: hasTravel,
+      isNonprofit: hasNonprofit,
+      businessModel,
+      reasoning: 'Fallback classification due to API error - keyword-based analysis',
+      keywordMatches: enhancedKeywords,
+      dateRelevance: this.checkDateRelevance(content),
+      geographicRelevance: this.checkGeographicRelevance(content)
+    };
   }
 
   /**
