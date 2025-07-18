@@ -320,7 +320,7 @@ export class PipelineOrchestrator {
               return await Promise.race([
                 this.searchAgent.executeSearch(query),
                 new Promise<any[]>((_, reject) => 
-                  setTimeout(() => reject(new Error('Search timeout')), 15000) // Increased timeout to 15s
+                  setTimeout(() => reject(new Error('Search timeout')), 30000) // Increased timeout to 30s for better reliability
                 )
               ]);
             },
@@ -887,18 +887,64 @@ export class PipelineOrchestrator {
   }
 
   /**
-   * Add a lead to history and return if it's a duplicate
+   * Check if a lead is a duplicate based on improved similarity logic
    */
   private isDuplicateLead(lead: Lead): boolean {
-    const leadString = JSON.stringify(lead);
-    if (this.leadsHistory.has(leadString)) {
-      console.log(`Skipping duplicate lead: ${lead.orgName} (${lead.ein})`);
-      return true;
+    // Check against existing leads in history
+    for (const [, existingLead] of this.leadsHistory.entries()) {
+      if (this.isLeadDuplicate(lead, existingLead)) {
+        logger.debug(`Skipping duplicate lead: ${lead.orgName} matches existing ${existingLead.orgName}`);
+        return true;
+      }
     }
-    this.leadsHistory.set(leadString, lead);
+    
+    // Not a duplicate, add to history
+    const leadKey = this.generateLeadKey(lead);
+    this.leadsHistory.set(leadKey, lead);
     this.saveLeadsHistory();
     return false;
   }
+
+  /**
+   * Improved duplicate detection logic
+   */
+  private isLeadDuplicate(lead1: Lead, lead2: Lead): boolean {
+    // Same URL = exact duplicate
+    if (lead1.url === lead2.url) {
+      return true;
+    }
+    
+    // Same EIN = duplicate organization (if both have EINs)
+    if (lead1.ein && lead2.ein && lead1.ein === lead2.ein) {
+      return true;
+    }
+    
+    // Same organization name and similar event dates = likely duplicate
+    if (lead1.orgName === lead2.orgName) {
+      // If both have event dates, check if they're within 30 days
+      if (lead1.eventDate && lead2.eventDate) {
+        const daysDiff = Math.abs(lead1.eventDate.getTime() - lead2.eventDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysDiff <= 30) {
+          return true;
+        }
+      }
+      // If one doesn't have a date, consider it a potential duplicate
+      else if (!lead1.eventDate || !lead2.eventDate) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Generate a unique key for a lead
+   */
+  private generateLeadKey(lead: Lead): string {
+    return `${lead.orgName}-${lead.eventDate?.toISOString() || 'no-date'}-${lead.url}`;
+  }
+
+  // String similarity methods removed to avoid TypeScript complexity
 }
 
 // Export default instance

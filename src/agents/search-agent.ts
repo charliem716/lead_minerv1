@@ -74,20 +74,28 @@ export class SearchAgent {
       `"art auction" "vacation" ${futureMonths[0]} 2025`
     ];
 
-    // Strategy 4: Geographic + event searches (rotate states)
+    // Strategy 4: Geographic + event searches (EXPANDED state rotation)
     const states = ['California', 'New York', 'Texas', 'Florida', 'Illinois', 'Ohio', 
-                   'North Carolina', 'Georgia', 'Michigan', 'Washington'];
+                   'North Carolina', 'Georgia', 'Michigan', 'Washington', 'Virginia', 'Pennsylvania',
+                   'Massachusetts', 'Arizona', 'Tennessee', 'Indiana', 'Missouri', 'Maryland',
+                   'Wisconsin', 'Colorado', 'Minnesota', 'South Carolina', 'Alabama', 'Louisiana'];
     const rotatedStates = this.rotateArray(states, rotationState.stateOffset);
+    
+    // Add major cities for more targeted searches
+    const cities = ['Los Angeles', 'New York City', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia',
+                   'San Antonio', 'San Diego', 'Dallas', 'San Jose', 'Austin', 'Jacksonville',
+                   'Fort Worth', 'Columbus', 'Charlotte', 'San Francisco', 'Indianapolis', 'Seattle'];
+    const rotatedCities = this.rotateArray(cities, rotationState.stateOffset);
     
     const geographicQueries = [
       `"${rotatedStates[0]} nonprofit" "travel auction" 2025 OR 2026`,
-      `"${rotatedStates[1]} charity" "travel raffle" 2025 OR 2026`,
-      `"${rotatedStates[2]} foundation" "travel packages" 2025 OR 2026`,
-      `"${rotatedStates[3]} nonprofit" "vacation auction" 2025 OR 2026`,
-      `"${rotatedStates[4]} charity" "travel raffle" 2025 OR 2026`,
-      `"${rotatedStates[5]} nonprofit" "travel auction" 2025 OR 2026`,
-      `"${rotatedStates[6]} charity" "vacation raffle" 2025 OR 2026`,
-      `"${rotatedStates[7]} nonprofit" "travel packages" 2025 OR 2026`,
+      `"${rotatedCities[0]}" "charity auction" "travel" 2025 OR 2026`,
+      `"${rotatedStates[1]} foundation" "travel packages" 2025 OR 2026`,
+      `"${rotatedCities[1]}" "nonprofit" "vacation auction" 2025 OR 2026`,
+      `"${rotatedStates[2]} charity" "travel raffle" 2025 OR 2026`,
+      `"${rotatedCities[2]}" "foundation" "travel auction" 2025 OR 2026`,
+      `"${rotatedStates[3]} nonprofit" "vacation raffle" 2025 OR 2026`,
+      `"${rotatedCities[3]}" "charity" "travel packages" 2025 OR 2026`,
       `"${rotatedStates[8]} charity" "travel auction" 2025 OR 2026`,
       `"${rotatedStates[9]} nonprofit" "vacation raffle" 2025 OR 2026`
     ];
@@ -138,15 +146,60 @@ export class SearchAgent {
       '"performing arts" "vacation auction" 2025 OR 2026'
     ];
 
-    // Combine strategies with rotation-based selection
+    // Strategy 8: Education organizations (high potential)
+    const educationQueries = [
+      '"school foundation" "travel auction" 2025 OR 2026',
+      '"university alumni" "vacation raffle" 2025 OR 2026',
+      '"PTA fundraiser" "travel packages" 2025 OR 2026',
+      '"college foundation" "charity auction" 2025 OR 2026',
+      '"education foundation" "travel raffle" 2025 OR 2026',
+      '"scholarship fund" "vacation auction" 2025 OR 2026',
+      '"private school" "travel fundraiser" 2025 OR 2026',
+      '"academy foundation" "charity raffle" 2025 OR 2026',
+      '"student aid" "travel packages" 2025 OR 2026',
+      '"educational nonprofit" "vacation auction" 2025 OR 2026'
+    ];
+
+    // Strategy 9: Community organizations (broad reach)
+    const communityQueries = [
+      '"rotary club" "travel auction" 2025 OR 2026',
+      '"chamber of commerce" "vacation raffle" 2025 OR 2026',
+      '"lions club" "travel packages" 2025 OR 2026',
+      '"kiwanis club" "charity auction" 2025 OR 2026',
+      '"community foundation" "travel raffle" 2025 OR 2026',
+      '"civic organization" "vacation auction" 2025 OR 2026',
+      '"volunteer organization" "travel fundraiser" 2025 OR 2026',
+      '"service club" "charity raffle" 2025 OR 2026',
+      '"community center" "travel packages" 2025 OR 2026',
+      '"neighborhood association" "vacation auction" 2025 OR 2026'
+    ];
+
+    // Strategy 10: Seasonal and event-specific (timely relevance)
+    const seasonalQueries = [
+      '"spring gala" "travel auction" 2025',
+      '"fall fundraiser" "vacation packages" 2025',
+      '"holiday benefit" "travel raffle" 2025',
+      '"annual dinner" "vacation auction" 2025',
+      '"charity ball" "travel packages" 2025',
+      '"benefit gala" "vacation raffle" 2025',
+      '"fundraising dinner" "travel auction" 2025',
+      '"silent auction" "vacation packages" 2025',
+      '"charity event" "travel raffle" 2025',
+      '"nonprofit gala" "vacation auction" 2025'
+    ];
+
+    // Combine strategies with rotation-based selection (EXPANDED)
     const allQueryStrings = [
-      ...directEventQueries.slice(0, 5),
-      ...organizationQueries.slice(0, 5),
-      ...eventQueries.slice(0, 5),
-      ...geographicQueries.slice(0, 5),
-      ...travelTypeQueries.slice(0, 5),
-      ...healthcareQueries.slice(0, 5),
-      ...artsQueries.slice(0, 5)
+      ...directEventQueries.slice(0, 4),
+      ...organizationQueries.slice(0, 4),
+      ...eventQueries.slice(0, 4),
+      ...geographicQueries.slice(0, 4),
+      ...travelTypeQueries.slice(0, 4),
+      ...healthcareQueries.slice(0, 4),
+      ...artsQueries.slice(0, 4),
+      ...educationQueries.slice(0, 4),
+      ...communityQueries.slice(0, 4),
+      ...seasonalQueries.slice(0, 3)
     ];
 
     // Create SearchQuery objects
@@ -197,7 +250,7 @@ export class SearchAgent {
         const response: SerpApiResponse = await Promise.race([
           getJson(searchParams),
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Request timeout after 30 seconds')), 30000)
+            setTimeout(() => reject(new Error('Request timeout after 45 seconds')), 45000)
           )
         ]) as SerpApiResponse;
 
