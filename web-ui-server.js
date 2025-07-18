@@ -896,7 +896,7 @@ const server = http.createServer((req, res) => {
     addLog('info', 'Pipeline execution started', 'system');
     
     const child = spawn('node', ['dist/production-app.js', '--once'], {
-      cwd: '/opt/leadminer',
+      cwd: '/root/LeadMinerv1',
       stdio: 'pipe'
     });
     
