@@ -219,10 +219,10 @@ Return true if human review is recommended.
         },
         dateRelevance: primaryResult.dateRelevance || false,
         geographicRelevance: primaryResult.geographicRelevance || false,
-                  selfConsistencyScore: consistencyScore,
-          reviewFlag,
+        selfConsistencyScore: consistencyScore,
+        reviewFlag,
           modelUsed: 'gpt-4o-mini',
-          classifiedAt: new Date()
+        classifiedAt: new Date()
       };
       
       // Apply business model filter - exclude B2B services
@@ -288,7 +288,7 @@ Return true if human review is recommended.
         businessModel
       );
       adjustedConfidence = this.applyOrganizationPreferences(content, adjustedConfidence);
-
+      
       return {
         ...result,
         businessModel,
@@ -555,10 +555,10 @@ ORG INFO: ${JSON.stringify(content.organizationInfo)}
       reasoning: `Classification failed: ${error.message}`,
       keywordMatches: { auction: [], travel: [], nonprofit: [], b2bExclusions: [], nonprofitIndicators: [] },
       dateRelevance: false,
-              geographicRelevance: false,
-        selfConsistencyScore: 0,
+      geographicRelevance: false,
+      selfConsistencyScore: 0,
         modelUsed: 'gpt-4o-mini',
-        classifiedAt: new Date(),
+      classifiedAt: new Date(),
       reviewFlag: true,
       error: `Classification failed: ${error.message}`
     };

@@ -151,15 +151,15 @@ export class SearchAgent {
 
     // Create SearchQuery objects
     allQueryStrings.forEach((queryString, index) => {
-      queries.push({
+        queries.push({
         id: `diverse-${Date.now()}-${index}`,
         query: queryString,
         dateRange: 'future',
-        geographic: 'US',
-        createdAt: new Date(),
-        resultsCount: 0,
-        status: 'pending'
-      });
+          geographic: 'US',
+          createdAt: new Date(),
+          resultsCount: 0,
+          status: 'pending'
+        });
     });
 
     // Update rotation state for next run
@@ -181,18 +181,18 @@ export class SearchAgent {
     let lastError: any;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
+    try {
         console.log(`Executing search (attempt ${attempt}/${maxRetries}): ${searchQuery.query}`);
-        
-        const searchParams: SerpApiParams = {
-          q: searchQuery.query,
-          engine: 'google',
-          api_key: this.apiKey,
-          num: 10, // Limit results to manage costs
-          gl: 'us', // Geographic location
-          hl: 'en', // Language
-          safe: 'active'
-        };
+      
+      const searchParams: SerpApiParams = {
+        q: searchQuery.query,
+        engine: 'google',
+        api_key: this.apiKey,
+        num: 10, // Limit results to manage costs
+        gl: 'us', // Geographic location
+        hl: 'en', // Language
+        safe: 'active'
+      };
 
         const response: SerpApiResponse = await Promise.race([
           getJson(searchParams),
@@ -201,17 +201,17 @@ export class SearchAgent {
           )
         ]) as SerpApiResponse;
 
-        this.requestCount++;
+      this.requestCount++;
 
-        // Update search query status
-        searchQuery.status = 'completed';
-        searchQuery.processedAt = new Date();
-        searchQuery.resultsCount = response.organic_results?.length || 0;
+      // Update search query status
+      searchQuery.status = 'completed';
+      searchQuery.processedAt = new Date();
+      searchQuery.resultsCount = response.organic_results?.length || 0;
 
         console.log(`✅ Search completed: ${searchQuery.resultsCount} results found`);
-        
-        return response.organic_results || [];
-      } catch (error) {
+      
+      return response.organic_results || [];
+    } catch (error) {
         lastError = error;
         console.error(`❌ Search attempt ${attempt} failed:`, error);
         
@@ -224,7 +224,7 @@ export class SearchAgent {
     }
 
     console.error(`❌ Search failed after ${maxRetries} attempts for query: ${searchQuery.query}`);
-    searchQuery.status = 'failed';
+      searchQuery.status = 'failed';
     throw lastError;
   }
 

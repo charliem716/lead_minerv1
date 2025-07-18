@@ -567,16 +567,16 @@ function generateConfigUI() {
                     <div class="form-group">
                         <label>Max Leads Per Day</label>
                         <input type="number" name="MAX_LEADS_PER_DAY" value="${config.MAX_LEADS_PER_DAY || 100}" min="1" max="500">
-                    </div>
-                    <div class="form-group">
-                        <label>Max Search Queries</label>
-                        <input type="number" name="MAX_SEARCH_QUERIES" value="${config.MAX_SEARCH_QUERIES || 50}" min="10" max="500">
+                </div>
+                <div class="form-group">
+                    <label>Max Search Queries</label>
+                    <input type="number" name="MAX_SEARCH_QUERIES" value="${config.MAX_SEARCH_QUERIES || 50}" min="10" max="500">
                     </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>Confidence Threshold</label>
-                        <input type="number" name="CONFIDENCE_THRESHOLD" value="${config.CONFIDENCE_THRESHOLD || 0.85}" min="0.1" max="1.0" step="0.05">
+                <div class="form-group">
+                    <label>Confidence Threshold</label>
+                    <input type="number" name="CONFIDENCE_THRESHOLD" value="${config.CONFIDENCE_THRESHOLD || 0.85}" min="0.1" max="1.0" step="0.05">
                     </div>
                     <div class="form-group">
                         <label>Minimum Future Days</label>
@@ -588,13 +588,13 @@ function generateConfigUI() {
             <div class="section">
                 <h3>💰 Cost Management</h3>
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>Daily Cost Threshold ($)</label>
-                        <input type="number" name="COST_THRESHOLD_DAILY" value="${config.COST_THRESHOLD_DAILY || 10}" min="1" max="1000" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label>Monthly Cost Threshold ($)</label>
-                        <input type="number" name="COST_THRESHOLD_MONTHLY" value="${config.COST_THRESHOLD_MONTHLY || 100}" min="10" max="10000" step="0.01">
+                <div class="form-group">
+                    <label>Daily Cost Threshold ($)</label>
+                    <input type="number" name="COST_THRESHOLD_DAILY" value="${config.COST_THRESHOLD_DAILY || 10}" min="1" max="1000" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Monthly Cost Threshold ($)</label>
+                    <input type="number" name="COST_THRESHOLD_MONTHLY" value="${config.COST_THRESHOLD_MONTHLY || 100}" min="10" max="10000" step="0.01">
                     </div>
                 </div>
             </div>

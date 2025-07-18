@@ -259,7 +259,7 @@ export class PipelineOrchestrator {
           for (const result of searchResults.slice(0, 3)) { // Process top 3 results per query for speed
             if (result.link && this.isValidUrl(result.link)) {
               const eventInfo = this.extractEventInfoFromSnippet(result.snippet || '', result.title || '');
-               
+          
               // Only include results with future event dates
               if (eventInfo.hasFutureDate) {
                 const scrapedData: ScrapedContent = {
@@ -280,8 +280,8 @@ export class PipelineOrchestrator {
                 console.log(`✅ Found future event: ${scrapedData.title} (${eventInfo.date})`);
               } else {
                 console.log(`⏭️  Skipping past event: ${result.title}`);
-              }
             }
+          }
           }
           
           return batchResults;
@@ -481,18 +481,18 @@ export class PipelineOrchestrator {
         );
         
         // Create verification record for each content item, regardless of success/failure
-        const verification: NonprofitVerification = {
-          id: `verification-${content.id}`,
-          leadId: content.id,
+          const verification: NonprofitVerification = {
+            id: `verification-${content.id}`,
+            leadId: content.id,
           ein: verificationResult.ein || undefined, // Don't use same EIN for failed results
-          isVerified: verificationResult.isVerified,
-          source: verificationResult.source as 'irs' | 'guidestar' | 'manual',
-          verifiedAt: new Date(),
-          additionalInfo: verificationResult.verificationDetails
-        };
-        
-        verifications.push(verification);
-        
+            isVerified: verificationResult.isVerified,
+            source: verificationResult.source as 'irs' | 'guidestar' | 'manual',
+            verifiedAt: new Date(),
+            additionalInfo: verificationResult.verificationDetails
+          };
+          
+          verifications.push(verification);
+          
         console.log(`✅ Verification complete: ${verification.isVerified ? 'VERIFIED' : 'NOT VERIFIED'} - EIN: ${verification.ein || 'N/A'}`);
         
         // Rate limiting between verifications

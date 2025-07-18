@@ -250,7 +250,7 @@ export class EnrichmentAgent {
       
       if (companyData) {
         return {
-          companyName: orgName,
+        companyName: orgName,
           companyUrl: companyData.website || `https://linkedin.com/company/${orgName.toLowerCase().replace(/\s+/g, '-')}`,
           employeeCount: companyData.employeeCount || 'Unknown',
           industry: companyData.industry || 'Nonprofit',
@@ -258,7 +258,7 @@ export class EnrichmentAgent {
           website: companyData.website || 'Unknown',
           foundedYear: companyData.foundedYear || undefined,
           headquarters: companyData.location || 'Unknown'
-        };
+      };
       }
 
       return null;

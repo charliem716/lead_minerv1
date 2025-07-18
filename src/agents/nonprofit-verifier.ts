@@ -177,12 +177,12 @@ export class NonprofitVerifier {
             id: this.generateId(),
             orgName: orgName,
             ein,
-            isVerified: true,
+        isVerified: true,
             source: 'irs',
             verificationDetails: {
-              classification: 'Public Charity',
-              deductibility: 'Contributions are deductible',
-              exemptionCode: '501(c)(3)',
+          classification: 'Public Charity',
+          deductibility: 'Contributions are deductible',
+          exemptionCode: '501(c)(3)',
               country: 'US'
             },
             verifiedAt: new Date(),
@@ -197,8 +197,8 @@ export class NonprofitVerifier {
     } catch (error) {
       console.error('IRS API error:', error);
       return this.createFailedResult(ein, undefined, error as Error);
-    }
-  }
+        }
+      }
 
   /**
    * Alternative nonprofit verification using Charity Navigator or similar
@@ -213,18 +213,18 @@ export class NonprofitVerifier {
           'User-Agent': 'Lead-Miner-Agent/1.0'
         }
       });
-      
+    
       if (response.ok) {
         const data = await response.json();
         
         if (data.organization) {
           const org = data.organization;
-          return {
-            id: this.generateId(),
+      return {
+        id: this.generateId(),
             orgName: org.name || 'Unknown Organization',
-            ein,
-            isVerified: true,
-            source: 'irs',
+        ein,
+        isVerified: true,
+        source: 'irs',
             verificationDetails: {
               classification: org.classification || 'Nonprofit',
               city: org.city,
@@ -237,14 +237,14 @@ export class NonprofitVerifier {
               totalAssets: org.totassetsend,
               foundedYear: org.ruling_date ? new Date(org.ruling_date).getFullYear() : undefined
             },
-            verifiedAt: new Date(),
+        verifiedAt: new Date(),
             confidence: 0.9
-          };
-        }
+      };
+    }
       }
       
       return this.createFailedResult(ein, undefined, new Error('Not found in nonprofit databases'));
-      
+    
     } catch (error) {
       console.error('Alternative verification error:', error);
       return this.createFailedResult(ein, undefined, error as Error);
@@ -317,7 +317,7 @@ export class NonprofitVerifier {
       // Search term contains org name
       else if (normalizedSearch.includes(normalizedOrgName)) {
         score = 0.6;
-      }
+    }
       // Check for word overlap
       else {
         const searchWords = normalizedSearch.split(/\s+/);

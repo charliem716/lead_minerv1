@@ -98,7 +98,7 @@ export class MonitoringSystem {
       excludedB2BCount,
       verificationStats
     };
-
+      
     // Store in history
     this.classificationHistory.push(monitoringResult);
 
@@ -137,12 +137,12 @@ export class MonitoringSystem {
         // Check for conflicting business model and relevance
         if ((result.businessModel === 'b2b_service' || result.businessModel === 'vendor') && result.isRelevant) {
           falsePositives.push(`${result.id}: B2B/Vendor business model but marked relevant`);
-        }
-        
+      }
+
         // Check for low confidence but high relevance
         if (result.confidenceScore < 0.6 && result.isRelevant) {
           falsePositives.push(`${result.id}: Low confidence (${result.confidenceScore.toFixed(2)}) but marked relevant`);
-        }
+    }
       }
     }
     
@@ -303,4 +303,4 @@ export class MonitoringSystem {
 }
 
 // Export singleton instance
-export const monitoringSystem = new MonitoringSystem(); 
+export const monitoringSystem = new MonitoringSystem();

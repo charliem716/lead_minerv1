@@ -72,12 +72,12 @@ export class ScraperAgent {
   async close(): Promise<void> {
     if (this.browser) {
       try {
-        await this.browser.close();
+      await this.browser.close();
         console.log('🔒 Puppeteer browser closed');
       } catch (error) {
         console.warn('⚠️ Error closing browser:', error);
       } finally {
-        this.browser = null;
+      this.browser = null;
       }
     }
   }
@@ -128,7 +128,7 @@ export class ScraperAgent {
   private parseRobotsTxt(robotsText: string): RobotsRules {
     const rules: RobotsRules = { userAgent: '*', disallow: [], allow: [] };
     const lines = robotsText.split('\n');
-    
+
     for (const line of lines) {
       const trimmed = line.trim().toLowerCase();
       if (trimmed.startsWith('disallow:')) {
@@ -142,7 +142,7 @@ export class ScraperAgent {
         if (!isNaN(delay)) rules.crawlDelay = delay;
       }
     }
-    
+
     return rules;
   }
 
@@ -207,7 +207,7 @@ export class ScraperAgent {
       if (!this.browser) {
         throw new Error('Browser failed to initialize');
       }
-
+      
       // Check robots.txt
       const isAllowed = await this.checkRobotsTxt(url);
       if (!isAllowed) {
@@ -294,22 +294,22 @@ export class ScraperAgent {
    * Create error result for failed scraping attempts
    */
   private createErrorResult(url: string, errorMessage: string, statusCode: number): ScrapedContent {
-    return {
-      id: `scraped_error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      url,
-      title: '',
-      content: '',
-      images: [],
-      rawHtml: '',
-      eventInfo: undefined,
-      contactInfo: undefined,
-      organizationInfo: undefined,
-      scrapedAt: new Date(),
-      processingStatus: 'pending' as const,
+      return {
+        id: `scraped_error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        url,
+        title: '',
+        content: '',
+        images: [],
+        rawHtml: '',
+        eventInfo: undefined,
+        contactInfo: undefined,
+        organizationInfo: undefined,
+        scrapedAt: new Date(),
+        processingStatus: 'pending' as const,
       statusCode,
-      error: errorMessage
-    };
-  }
+        error: errorMessage
+      };
+    }
 
   /**
    * Determine status code from error message
