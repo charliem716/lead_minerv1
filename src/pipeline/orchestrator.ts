@@ -856,13 +856,7 @@ export class PipelineOrchestrator {
     }
   }
 
-  /**
-   * Save search history to file
-   */
-  private saveSearchHistory(): void {
-    fs.writeFileSync(this.searchHistoryFile, JSON.stringify(Array.from(this.searchHistory)));
-    console.log(`Saved ${this.searchHistory.size} unique search queries to history.`);
-  }
+  // saveSearchHistory method removed - now using saveSearchHistoryWithTime
 
   /**
    * Save leads history to file
@@ -873,17 +867,61 @@ export class PipelineOrchestrator {
   }
 
   /**
-   * Add a search query to history and return if it's a duplicate
+   * Add a search query to history and return if it's a duplicate (with time-based aging)
    */
   private isDuplicateSearchQuery(query: SearchQuery): boolean {
-    const queryString = JSON.stringify(query);
-    if (this.searchHistory.has(queryString)) {
-      console.log(`Skipping duplicate search query: ${query.query}`);
-      return true;
+    const queryString = query.query; // Use just the query string for simpler tracking
+    
+    // Load search history with timestamps if it exists
+    const searchHistoryWithTime = this.loadSearchHistoryWithTime();
+    
+    if (searchHistoryWithTime.has(queryString)) {
+      const lastSearchTime = searchHistoryWithTime.get(queryString)!;
+      const timeSinceLastSearch = Date.now() - lastSearchTime;
+      const maxSearchAgeMs = 24 * 60 * 60 * 1000; // 24 hours
+      
+      if (timeSinceLastSearch < maxSearchAgeMs) {
+        console.log(`Skipping recent search query: ${query.query} (searched ${Math.round(timeSinceLastSearch / (60 * 60 * 1000))} hours ago)`);
+        return true;
+      } else {
+        logger.debug(`Allowing re-search of: ${query.query} (last searched ${Math.round(timeSinceLastSearch / (60 * 60 * 1000))} hours ago)`);
+      }
     }
-    this.searchHistory.add(queryString);
-    this.saveSearchHistory();
+    
+    // Add/update the search timestamp
+    searchHistoryWithTime.set(queryString, Date.now());
+    this.saveSearchHistoryWithTime(searchHistoryWithTime);
     return false;
+  }
+
+  /**
+   * Load search history with timestamps
+   */
+  private loadSearchHistoryWithTime(): Map<string, number> {
+    const searchHistoryTimeFile = path.join(this.persistenceDir, 'search-history-time.json');
+    try {
+      if (fs.existsSync(searchHistoryTimeFile)) {
+        const data = fs.readFileSync(searchHistoryTimeFile, 'utf8');
+        const parsed = JSON.parse(data);
+        return new Map(Object.entries(parsed).map(([k, v]) => [k, v as number]));
+      }
+    } catch (error) {
+      console.warn('Failed to load search history with time:', error);
+    }
+    return new Map();
+  }
+
+  /**
+   * Save search history with timestamps
+   */
+  private saveSearchHistoryWithTime(searchHistoryWithTime: Map<string, number>): void {
+    const searchHistoryTimeFile = path.join(this.persistenceDir, 'search-history-time.json');
+    try {
+      const data = Object.fromEntries(searchHistoryWithTime);
+      fs.writeFileSync(searchHistoryTimeFile, JSON.stringify(data, null, 2));
+    } catch (error) {
+      console.error('Failed to save search history with time:', error);
+    }
   }
 
   /**
@@ -906,7 +944,7 @@ export class PipelineOrchestrator {
   }
 
   /**
-   * Improved duplicate detection logic
+   * Time-aware duplicate detection logic
    */
   private isLeadDuplicate(lead1: Lead, lead2: Lead): boolean {
     // Same URL = exact duplicate
@@ -919,19 +957,28 @@ export class PipelineOrchestrator {
       return true;
     }
     
-    // Same organization name and similar event dates = likely duplicate
+    // Same organization name - but allow if enough time has passed
     if (lead1.orgName === lead2.orgName) {
-      // If both have event dates, check if they're within 30 days
+      // Check how old the existing lead is
+      const existingLeadAge = Date.now() - lead2.createdAt.getTime();
+      const maxAgeMs = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+      
+      // If existing lead is older than 7 days, allow new lead
+      if (existingLeadAge > maxAgeMs) {
+        logger.debug(`Allowing lead from ${lead1.orgName} - previous lead is ${Math.round(existingLeadAge / (24 * 60 * 60 * 1000))} days old`);
+        return false;
+      }
+      
+      // If both have event dates, check if they're the same event
       if (lead1.eventDate && lead2.eventDate) {
         const daysDiff = Math.abs(lead1.eventDate.getTime() - lead2.eventDate.getTime()) / (1000 * 60 * 60 * 24);
-        if (daysDiff <= 30) {
+        if (daysDiff <= 7) { // Same event if within 7 days
           return true;
         }
       }
-      // If one doesn't have a date, consider it a potential duplicate
-      else if (!lead1.eventDate || !lead2.eventDate) {
-        return true;
-      }
+      
+      // Same organization, recent lead, but different/unknown event dates
+      return true;
     }
     
     return false;
