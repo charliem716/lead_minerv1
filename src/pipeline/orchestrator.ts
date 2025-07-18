@@ -291,7 +291,7 @@ export class PipelineOrchestrator {
    */
   private async realSearchAndScrape(queries: SearchQuery[]): Promise<ScrapedContent[]> {
     const scrapedContent: ScrapedContent[] = [];
-    const maxQueries = 25; // Increased to ensure enough raw material for 5+ leads
+    const maxQueries = 39; // Process all generated queries for maximum lead discovery
     
     console.log(`🚀 Processing ${Math.min(queries.length, maxQueries)} search queries with manual seed fallback`);
     
@@ -308,7 +308,7 @@ export class PipelineOrchestrator {
       console.log(`📋 Processing ${searchResults.length} results for query ${queryId}`);
       
       // Convert SerpAPI results directly to ScrapedContent (no browser needed!)
-      for (const result of searchResults.slice(0, 5)) { // Process top 5 results per query for better diversity
+      for (const result of searchResults.slice(0, 10)) { // Process top 10 results per query for maximum diversity
         if (result.link && this.isValidUrl(result.link)) {
           const eventInfo = this.extractEventInfoFromSnippet(result.snippet || '', result.title || '');
       

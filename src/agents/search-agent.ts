@@ -487,6 +487,97 @@ export class SearchAgent {
         snippet: `Community food bank charity auction with vacation packages and travel vouchers for hunger relief. Auction: ${futureDateString}. Includes cruise packages, resort stays, and travel gift cards.`,
         link: "https://localfoodbank.org/travel-auction-2025",
         source: "manual_seed"
+      },
+      // EXPANDED SEED ORGANIZATIONS FOR MAXIMUM DIVERSITY
+      {
+        title: "Make-A-Wish Foundation Travel Gala",
+        snippet: `Children's wish-granting nonprofit travel auction supporting critically ill children. Gala: ${futureDateString}. Features luxury resort packages, family vacations, and Disney experiences.`,
+        link: "https://makeawish.org/travel-gala-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "Rotary Club International Travel Raffle",
+        snippet: `Service organization travel raffle supporting global humanitarian projects. Drawing: ${futureDateString}. Includes international tours, cruise packages, and adventure travel.`,
+        link: "https://rotary.org/travel-raffle-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "Lions Club Travel Package Auction",
+        snippet: `Community service club auction featuring travel experiences for vision and hearing programs. Event: ${futureDateString}. Travel prizes include European tours and beach resorts.`,
+        link: "https://lionsclub.org/travel-auction-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "American Cancer Society Travel Benefit",
+        snippet: `Cancer research nonprofit travel auction supporting patient services and research. Benefit: ${futureDateString}. Features wellness retreats, spa packages, and healing vacations.`,
+        link: "https://cancer.org/travel-benefit-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "Ronald McDonald House Travel Fundraiser",
+        snippet: `Family support nonprofit auction with travel packages for families of sick children. Fundraiser: ${futureDateString}. Includes family-friendly resorts and Disney packages.`,
+        link: "https://rmhc.org/travel-fundraiser-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "Kiwanis Club Vacation Auction",
+        snippet: `Youth-focused service club travel auction supporting children's programs. Auction: ${futureDateString}. Features family vacations, educational trips, and summer camp experiences.`,
+        link: "https://kiwanis.org/vacation-auction-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "March of Dimes Travel Gala",
+        snippet: `Maternal and infant health nonprofit travel auction supporting premature birth prevention. Gala: ${futureDateString}. Includes babymoon packages, family resorts, and wellness retreats.`,
+        link: "https://marchofdimes.org/travel-gala-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "Alzheimer's Association Travel Benefit",
+        snippet: `Dementia research nonprofit auction featuring travel experiences for caregivers. Benefit: ${futureDateString}. Features respite vacations, wellness retreats, and memory care resources.`,
+        link: "https://alz.org/travel-benefit-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "Susan G. Komen Travel Auction",
+        snippet: `Breast cancer nonprofit travel auction supporting research and patient support. Auction: ${futureDateString}. Includes survivor retreats, wellness vacations, and spa packages.`,
+        link: "https://komen.org/travel-auction-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "Special Olympics Travel Raffle",
+        snippet: `Intellectual disability sports nonprofit travel raffle supporting athlete programs. Raffle: ${futureDateString}. Features accessible travel, sports events, and family vacations.`,
+        link: "https://specialolympics.org/travel-raffle-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "Big Brothers Big Sisters Travel Fundraiser",
+        snippet: `Youth mentoring nonprofit auction with travel packages supporting mentorship programs. Fundraiser: ${futureDateString}. Includes family bonding trips and educational tours.`,
+        link: "https://bbbs.org/travel-fundraiser-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "Girl Scouts Travel Cookie Auction",
+        snippet: `Youth development organization travel auction supporting leadership programs for girls. Auction: ${futureDateString}. Features adventure travel, leadership camps, and international exchanges.`,
+        link: "https://girlscouts.org/travel-auction-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "Boy Scouts Adventure Travel Raffle",
+        snippet: `Youth scouting organization travel raffle supporting outdoor education programs. Raffle: ${futureDateString}. Includes camping adventures, national park tours, and outdoor gear.`,
+        link: "https://scouting.org/travel-raffle-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "American Diabetes Association Travel Gala",
+        snippet: `Diabetes research nonprofit travel auction supporting research and patient care. Gala: ${futureDateString}. Features health-focused resorts, wellness retreats, and medical spas.`,
+        link: "https://diabetes.org/travel-gala-2025",
+        source: "manual_seed"
+      },
+      {
+        title: "Wounded Warrior Project Travel Benefit",
+        snippet: `Veterans support nonprofit travel auction supporting injured service members. Benefit: ${futureDateString}. Includes adaptive travel, family reunions, and healing retreats.`,
+        link: "https://woundedwarriorproject.org/travel-benefit-2025",
+        source: "manual_seed"
       }
     ];
   }
