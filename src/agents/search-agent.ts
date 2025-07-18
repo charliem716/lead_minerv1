@@ -27,7 +27,21 @@ export class SearchAgent {
     // Load rotation state to vary queries
     const rotationState = this.loadRotationState();
     
-    // Strategy 1: Direct nonprofit event searches (most effective) - rotated
+    // Strategy 1: SIMPLIFIED high-success queries (NEW - prioritize success rate)
+    const simpleHighSuccessQueries = [
+      'nonprofit auction travel 2025',
+      'charity raffle vacation 2025',
+      'school fundraiser travel auction',
+      'hospital foundation travel raffle',
+      'museum gala vacation auction',
+      'church travel fundraiser',
+      'university alumni travel auction',
+      'foundation charity vacation raffle',
+      'nonprofit travel packages auction',
+      'charity travel fundraising event'
+    ];
+
+    // Strategy 2: Direct nonprofit event searches (most effective) - rotated
     const directEventQueries = [
       'site:org "travel auction" 2025 OR 2026',
       'site:org "vacation raffle" 2025 OR 2026',
@@ -41,7 +55,7 @@ export class SearchAgent {
       '"nonprofit travel fundraiser" 2025 OR 2026'
     ];
 
-    // Strategy 2: Specific organization types
+    // Strategy 3: Specific organization types
     const organizationQueries = [
       '"501c3" "travel auction" 2025 OR 2026',
       '"501(c)(3)" "vacation raffle" 2025 OR 2026',
@@ -55,7 +69,7 @@ export class SearchAgent {
       '"youth organization" "travel raffle" 2025 OR 2026'
     ];
 
-    // Strategy 3: Event-specific searches with current month rotation
+    // Strategy 4: Event-specific searches with current month rotation
     const currentMonth = new Date().getMonth();
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 
                    'July', 'August', 'September', 'October', 'November', 'December'];
@@ -74,7 +88,7 @@ export class SearchAgent {
       `"art auction" "vacation" ${futureMonths[0]} 2025`
     ];
 
-    // Strategy 4: Geographic + event searches (EXPANDED state rotation)
+    // Strategy 5: Geographic + event searches (EXPANDED state rotation)
     const states = ['California', 'New York', 'Texas', 'Florida', 'Illinois', 'Ohio', 
                    'North Carolina', 'Georgia', 'Michigan', 'Washington', 'Virginia', 'Pennsylvania',
                    'Massachusetts', 'Arizona', 'Tennessee', 'Indiana', 'Missouri', 'Maryland',
@@ -100,7 +114,7 @@ export class SearchAgent {
       `"${rotatedStates[9]} nonprofit" "vacation raffle" 2025 OR 2026`
     ];
 
-    // Strategy 5: Specific travel types (rotate destinations)
+    // Strategy 6: Specific travel types (rotate destinations)
     const travelTypes = ['cruise', 'vacation rental', 'resort package', 'airline tickets', 'hotel stay', 
                         'Disney trip', 'European vacation', 'Hawaii trip', 'ski vacation', 'beach vacation'];
     const rotatedTravel = this.rotateArray(travelTypes, rotationState.travelOffset);
@@ -118,7 +132,7 @@ export class SearchAgent {
       `"${rotatedTravel[9]}" charity auction 2025 OR 2026`
     ];
 
-    // Strategy 6: Healthcare organizations (most promising)
+    // Strategy 7: Healthcare organizations (most promising)
     const healthcareQueries = [
       '"hospital foundation" "travel auction" 2025 OR 2026',
       '"medical center" "charity raffle" 2025 OR 2026',
@@ -132,7 +146,7 @@ export class SearchAgent {
       '"hospice foundation" "travel packages" 2025 OR 2026'
     ];
 
-    // Strategy 7: Arts and culture (high success rate)
+    // Strategy 8: Arts and culture (high success rate)
     const artsQueries = [
       '"art museum" "travel auction" 2025 OR 2026',
       '"symphony orchestra" "vacation raffle" 2025 OR 2026',
@@ -146,7 +160,7 @@ export class SearchAgent {
       '"performing arts" "vacation auction" 2025 OR 2026'
     ];
 
-    // Strategy 8: Education organizations (high potential)
+    // Strategy 9: Education organizations (high potential)
     const educationQueries = [
       '"school foundation" "travel auction" 2025 OR 2026',
       '"university alumni" "vacation raffle" 2025 OR 2026',
@@ -160,7 +174,7 @@ export class SearchAgent {
       '"educational nonprofit" "vacation auction" 2025 OR 2026'
     ];
 
-    // Strategy 9: Community organizations (broad reach)
+    // Strategy 10: Community organizations (broad reach)
     const communityQueries = [
       '"rotary club" "travel auction" 2025 OR 2026',
       '"chamber of commerce" "vacation raffle" 2025 OR 2026',
@@ -174,7 +188,7 @@ export class SearchAgent {
       '"neighborhood association" "vacation auction" 2025 OR 2026'
     ];
 
-    // Strategy 10: Seasonal and event-specific (timely relevance)
+    // Strategy 11: Seasonal and event-specific (timely relevance)
     const seasonalQueries = [
       '"spring gala" "travel auction" 2025',
       '"fall fundraiser" "vacation packages" 2025',
@@ -188,18 +202,19 @@ export class SearchAgent {
       '"nonprofit gala" "vacation auction" 2025'
     ];
 
-    // Combine strategies with rotation-based selection (EXPANDED)
+    // Combine strategies with rotation-based selection (PRIORITIZE HIGH-SUCCESS)
     const allQueryStrings = [
-      ...directEventQueries.slice(0, 4),
-      ...organizationQueries.slice(0, 4),
-      ...eventQueries.slice(0, 4),
-      ...geographicQueries.slice(0, 4),
-      ...travelTypeQueries.slice(0, 4),
-      ...healthcareQueries.slice(0, 4),
-      ...artsQueries.slice(0, 4),
-      ...educationQueries.slice(0, 4),
-      ...communityQueries.slice(0, 4),
-      ...seasonalQueries.slice(0, 3)
+      ...simpleHighSuccessQueries.slice(0, 10), // Prioritize simple, high-success queries
+      ...directEventQueries.slice(0, 3),
+      ...organizationQueries.slice(0, 3),
+      ...eventQueries.slice(0, 3),
+      ...geographicQueries.slice(0, 3),
+      ...travelTypeQueries.slice(0, 3),
+      ...healthcareQueries.slice(0, 3),
+      ...artsQueries.slice(0, 3),
+      ...educationQueries.slice(0, 3),
+      ...communityQueries.slice(0, 3),
+      ...seasonalQueries.slice(0, 2)
     ];
 
     // Create SearchQuery objects
@@ -223,29 +238,28 @@ export class SearchAgent {
   }
 
   /**
-   * Execute search query via SerpAPI with retry logic
+   * Execute search query via SerpAPI with enhanced retry logic and fallbacks
    */
   async executeSearch(searchQuery: SearchQuery): Promise<any[]> {
     if (this.requestCount >= this.dailyLimit) {
       throw new Error(`Daily search limit of ${this.dailyLimit} reached`);
     }
 
-    const maxRetries = 2; // Reduced from 3 to 2 for speed
-    let lastError: any;
+    const maxRetries = 3; // Increased retries for better success rate
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
+      try {
         console.log(`Executing search (attempt ${attempt}/${maxRetries}): ${searchQuery.query}`);
-      
-      const searchParams: SerpApiParams = {
-        q: searchQuery.query,
-        engine: 'google',
-        api_key: this.apiKey,
-        num: 10, // Limit results to manage costs
-        gl: 'us', // Geographic location
-        hl: 'en', // Language
-        safe: 'active'
-      };
+        
+        const searchParams: SerpApiParams = {
+          q: searchQuery.query,
+          engine: 'google',
+          api_key: this.apiKey,
+          num: 10, // Limit results to manage costs
+          gl: 'us', // Geographic location
+          hl: 'en', // Language
+          safe: 'active'
+        };
 
         const response: SerpApiResponse = await Promise.race([
           getJson(searchParams),
@@ -254,31 +268,55 @@ export class SearchAgent {
           )
         ]) as SerpApiResponse;
 
-      this.requestCount++;
+        this.requestCount++;
 
-      // Update search query status
-      searchQuery.status = 'completed';
-      searchQuery.processedAt = new Date();
-      searchQuery.resultsCount = response.organic_results?.length || 0;
+        // Update search query status
+        searchQuery.status = 'completed';
+        searchQuery.processedAt = new Date();
+        searchQuery.resultsCount = response.organic_results?.length || 0;
 
         console.log(`✅ Search completed: ${searchQuery.resultsCount} results found`);
-      
-      return response.organic_results || [];
-    } catch (error) {
-        lastError = error;
+        
+        // Return results even if empty - this counts as success
+        return response.organic_results || [];
+        
+      } catch (error) {
         console.error(`❌ Search attempt ${attempt} failed:`, error);
         
         if (attempt < maxRetries) {
-          const delay = attempt * 1000; // Reduced backoff: 1s, 2s
+          // Progressive backoff with fallback query simplification
+          const delay = attempt * 2000; // 2s, 4s, 6s
           console.log(`⏳ Retrying in ${delay}ms...`);
           await this.delay(delay);
+          
+          // On final retry, try a simplified version of the query
+          if (attempt === maxRetries - 1) {
+            searchQuery.query = this.simplifyQuery(searchQuery.query);
+            console.log(`🔄 Simplified query for final attempt: ${searchQuery.query}`);
+          }
         }
       }
     }
 
     console.error(`❌ Search failed after ${maxRetries} attempts for query: ${searchQuery.query}`);
-      searchQuery.status = 'failed';
-    throw lastError;
+    searchQuery.status = 'failed';
+    
+    // Return empty array instead of throwing - allows pipeline to continue
+    console.log(`⚠️ Returning empty results for failed query to continue pipeline`);
+    return [];
+  }
+
+  /**
+   * Simplify complex queries for better success rate
+   */
+  private simplifyQuery(query: string): string {
+    // Remove complex operators and quotes for final retry
+    return query
+      .replace(/site:\w+/g, '') // Remove site: operators
+      .replace(/OR \d{4}/g, '') // Remove OR operators
+      .replace(/"/g, '') // Remove quotes
+      .replace(/\s+/g, ' ') // Normalize spaces
+      .trim();
   }
 
   /**
