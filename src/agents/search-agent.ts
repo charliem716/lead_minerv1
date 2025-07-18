@@ -390,15 +390,7 @@ export class SearchAgent {
     return results;
   }
 
-  /**
-   * Manual seed database DISABLED - NO FAKE RESULTS EVER
-   * This function now returns empty array to ensure only real search results
-   */
-  private getManualSeedOrganizations(): any[] {
-    // CRITICAL: Never return fake results - only real search data allowed
-    console.log('🚫 Manual seed system DISABLED - only real search results will be used');
-    return [];
-  }
+
 
   /**
    * Filter search results by geographic region

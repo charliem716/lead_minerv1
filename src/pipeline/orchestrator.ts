@@ -568,67 +568,6 @@ export class PipelineOrchestrator {
   /**
    * Create seed organizations content directly as ScrapedContent for guaranteed leads
    */
-  private createSeedOrganizationsContent(): ScrapedContent[] {
-    const futureDate = new Date();
-    futureDate.setMonth(futureDate.getMonth() + 3); // 3 months from now
-    const futureDateString = futureDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    
-    const seedOrganizations = [
-      {
-        title: "Children's Hospital Foundation Travel Auction 2025",
-        snippet: `Annual charity travel auction featuring vacation packages and travel experiences to support children's healthcare. Event date: ${futureDateString}. Silent auction includes cruise packages, resort stays, and airline vouchers.`,
-        url: "https://childrenshospitalfoundation.org/travel-auction-2025"
-      },
-      {
-        title: "United Way Travel Raffle 2025",
-        snippet: `Community fundraising event with travel packages including cruises and resort stays. Raffle drawing: ${futureDateString}. Prizes include Hawaii vacation, European tour, and Disney World packages.`,
-        url: "https://unitedway.org/travel-raffle-2025"
-      },
-      {
-        title: "American Red Cross Vacation Auction",
-        snippet: `Nonprofit travel auction supporting disaster relief with vacation packages and travel vouchers. Auction date: ${futureDateString}. Features Caribbean cruise, ski resort packages, and international travel.`,
-        url: "https://redcross.org/vacation-auction-2025"
-      },
-      {
-        title: "Habitat for Humanity Travel Fundraiser",
-        snippet: `Annual gala featuring travel packages auction to support affordable housing initiatives. Gala date: ${futureDateString}. Auction includes vacation rentals, airline tickets, and hotel stays.`,
-        url: "https://habitat.org/travel-fundraiser-2025"
-      },
-      {
-        title: "YMCA Community Travel Auction",
-        snippet: `Local YMCA charity auction with vacation packages and travel experiences for youth programs. Event: ${futureDateString}. Travel packages include family vacations, camping trips, and educational tours.`,
-        url: "https://ymca.org/community-travel-auction"
-      }
-    ];
-
-    return seedOrganizations.map((org, index) => ({
-      id: `seed-org-${Date.now()}-${index}`,
-      url: org.url,
-      title: org.title,
-      content: org.snippet,
-      images: [],
-      scrapedAt: new Date(),
-      processingStatus: 'pending',
-      statusCode: 200,
-      eventInfo: {
-        title: org.title,
-        date: futureDateString,
-        parsedDate: futureDate,
-        description: org.snippet,
-        eventTypes: ['auction', 'fundraiser'],
-        hasFutureDate: true
-      },
-      contactInfo: {
-        emails: [],
-        phones: [],
-        address: undefined
-      },
-      organizationInfo: {
-        name: org.title.split(' ')[0] + ' ' + org.title.split(' ')[1], // Extract org name
-        ein: undefined
-      }
-    }));
-  }
 
   /**
    * REAL classification using OpenAI with caching
