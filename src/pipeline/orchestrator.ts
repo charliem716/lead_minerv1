@@ -227,15 +227,22 @@ export class PipelineOrchestrator {
     
     console.log(`🚀 Processing ${Math.min(queries.length, maxQueries)} search queries with caching`);
     
-    // Process queries in smaller parallel batches for speed
-    const batchSize = 3; // Reduced batch size for better control
+    // Process searches in smaller batches for better control
+    const batchSize = 2; // Reduced from 3 for faster processing
     const limitedQueries = queries.slice(0, maxQueries);
     
     for (let i = 0; i < limitedQueries.length && scrapedContent.length < targetLeads * 4; i += batchSize) {
       const batch = limitedQueries.slice(i, i + batchSize);
+      console.log(`\n📦 Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(limitedQueries.length/batchSize)} (${batch.length} queries)`);
+      
+      // Early termination if we have enough results
+      if (scrapedContent.length >= 5) { // Stop after 5 good results
+        console.log(`✅ Early termination: Found ${scrapedContent.length} results, stopping search`);
+        break;
+      }
       
       // Process batch in parallel
-      const batchPromises = batch.map(async (query) => {
+      const batchPromises = batch.map(async (query: SearchQuery) => {
         try {
           console.log(`🔍 Executing search: ${query.query}`);
           
@@ -246,7 +253,7 @@ export class PipelineOrchestrator {
               return await Promise.race([
                 this.searchAgent.executeSearch(query),
                 new Promise<any[]>((_, reject) => 
-                  setTimeout(() => reject(new Error('Search timeout')), 10000) // Reduced timeout
+                  setTimeout(() => reject(new Error('Search timeout')), 15000) // Increased timeout to 15s
                 )
               ]);
             },

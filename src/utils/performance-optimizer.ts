@@ -353,7 +353,7 @@ export class PerformanceOptimizer {
     }
 
     // Log slow operations
-    if (metrics.duration > 5000) {
+    if (metrics.duration > 8000) { // Increased threshold from 5000ms to 8000ms
       console.warn(`⚠️ Slow operation: ${metrics.operationName} took ${metrics.duration}ms`);
     }
   }
