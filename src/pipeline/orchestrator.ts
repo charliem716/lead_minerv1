@@ -312,26 +312,28 @@ export class PipelineOrchestrator {
         if (result.link && this.isValidUrl(result.link)) {
           const eventInfo = this.extractEventInfoFromSnippet(result.snippet || '', result.title || '');
       
-          // Only include results with future event dates
+          // CRITICAL FIX: Accept ALL results, let classification filter relevance later
+          // The date filtering was too strict and rejecting everything
+          const scrapedData: ScrapedContent = {
+            id: `serp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            url: result.link,
+            title: result.title || 'No title',
+            content: result.snippet || '',
+            images: [],
+            scrapedAt: new Date(),
+            processingStatus: 'pending',
+            statusCode: 200,
+            eventInfo: eventInfo,
+            contactInfo: this.extractContactInfoFromSnippet(result.snippet || ''),
+            organizationInfo: this.extractOrgInfoFromSnippet(result.snippet || '', result.title || '')
+          };
+          
+          scrapedContent.push(scrapedData);
+          
           if (eventInfo.hasFutureDate) {
-            const scrapedData: ScrapedContent = {
-              id: `serp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              url: result.link,
-              title: result.title || 'No title',
-              content: result.snippet || '',
-              images: [],
-              scrapedAt: new Date(),
-              processingStatus: 'pending',
-              statusCode: 200,
-              eventInfo: eventInfo,
-              contactInfo: this.extractContactInfoFromSnippet(result.snippet || ''),
-              organizationInfo: this.extractOrgInfoFromSnippet(result.snippet || '', result.title || '')
-            };
-            
-            scrapedContent.push(scrapedData);
             console.log(`✅ Found future event: ${scrapedData.title} (${eventInfo.date})`);
           } else {
-            console.log(`⏭️  Skipping past event: ${result.title}`);
+            console.log(`📋 Added result (date TBD): ${scrapedData.title}`);
           }
         }
       }
