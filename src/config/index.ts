@@ -20,7 +20,7 @@ export const config: Config = {
     excludeStates: process.env['EXCLUDE_STATES']?.split(',') || ['AK', 'HI']
   },
   precision: {
-    confidenceThreshold: parseFloat(process.env['CONFIDENCE_THRESHOLD'] || '0.85'),
+    confidenceThreshold: parseFloat(process.env['CONFIDENCE_THRESHOLD'] || '0.75'), // Lowered from 0.85 to ensure more leads qualify
     requireMultipleKeywords: process.env['REQUIRE_MULTIPLE_KEYWORDS'] === 'true',
     strictNonprofitVerification: process.env['STRICT_NONPROFIT_VERIFICATION'] !== 'false'
   },

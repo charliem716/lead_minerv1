@@ -182,6 +182,31 @@ export class PipelineOrchestrator {
       this.results.results.finalLeads = uniqueLeads;
       console.log(`✅ Created ${preliminaryLeads.length} preliminary leads, ${uniqueLeads.length} unique (${preliminaryLeads.length - uniqueLeads.length} duplicates filtered)`);
 
+      // Ensure we have at least 5 leads - if not, process more queries
+      if (uniqueLeads.length < 5) {
+        console.log(`⚠️ Only found ${uniqueLeads.length} leads, need at least 5. Processing additional queries...`);
+        
+        // Generate additional queries with broader criteria
+        const additionalQueries = await this.generateAdditionalSearchQueries();
+        const moreUniqueQueries = additionalQueries.filter(query => !this.isDuplicateSearchQuery(query));
+        
+        if (moreUniqueQueries.length > 0) {
+          console.log(`🔍 Processing ${moreUniqueQueries.length} additional queries to reach minimum 5 leads`);
+          
+          // Process additional queries
+          const moreScrapedContent = await this.realSearchAndScrape(moreUniqueQueries);
+          const moreDeduplicatedContent = this.deduplicationEngine.deduplicateBatch(moreScrapedContent);
+          const moreClassificationResults = await this.realClassification(moreDeduplicatedContent);
+          const moreVerificationResults = await this.realVerification(moreDeduplicatedContent);
+          const moreLeads = await this.createFinalLeads(moreDeduplicatedContent, moreClassificationResults, moreVerificationResults);
+          const moreUniqueLeads = moreLeads.filter(lead => !this.isDuplicateLead(lead));
+          
+          // Add to final results
+          this.results.results.finalLeads.push(...moreUniqueLeads);
+          console.log(`✅ Found ${moreUniqueLeads.length} additional leads. Total: ${this.results.results.finalLeads.length}`);
+        }
+      }
+
       // Phase 5: Output to Google Sheets (only unique leads)
       if (this.config.outputToSheets && !this.config.dryRun && uniqueLeads.length > 0) {
         console.log('\n📊 Phase 5: Output to Google Sheets (UNIQUE LEADS ONLY)');
@@ -216,30 +241,46 @@ export class PipelineOrchestrator {
   }
 
   /**
+   * Generate additional search queries to reach a minimum of 5 leads
+   */
+  private async generateAdditionalSearchQueries(): Promise<SearchQuery[]> {
+    const currentLeadCount = this.results.results.finalLeads.length;
+    const targetLeads = 5;
+    const queriesToGenerate = Math.max(0, targetLeads - currentLeadCount);
+
+    if (queriesToGenerate === 0) {
+      console.log(`Already have ${currentLeadCount} leads, no additional queries needed.`);
+      return [];
+    }
+
+    console.log(`Generating additional search queries to reach ${targetLeads} leads.`);
+    const additionalQueries = await this.searchAgent.generateSearchQueries(); // Fixed: removed parameter
+    console.log(`Generated ${additionalQueries.length} additional queries.`);
+    return additionalQueries.slice(0, 10); // Limit to 10 additional queries
+  }
+
+  /**
    * REAL search using SerpAPI content directly with caching and smart rotation
    * Optimized for speed with parallel processing and early termination
    */
   private async realSearchAndScrape(queries: SearchQuery[]): Promise<ScrapedContent[]> {
     const scrapedContent: ScrapedContent[] = [];
     let processedQueries = 0;
-    const maxQueries = 15; // Reduced further for speed
-    const targetLeads = 8; // Reduced target for faster execution
+    const maxQueries = 25; // Increased to ensure enough raw material for 5+ leads
+    const targetLeads = 15; // Increased target to account for filtering
     
     console.log(`🚀 Processing ${Math.min(queries.length, maxQueries)} search queries with caching`);
     
     // Process searches in smaller batches for better control
-    const batchSize = 2; // Reduced from 3 for faster processing
+    const batchSize = 2; // Keep batch size small for control
     const limitedQueries = queries.slice(0, maxQueries);
     
     for (let i = 0; i < limitedQueries.length && scrapedContent.length < targetLeads * 4; i += batchSize) {
       const batch = limitedQueries.slice(i, i + batchSize);
       console.log(`\n📦 Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(limitedQueries.length/batchSize)} (${batch.length} queries)`);
       
-      // Early termination if we have enough results
-      if (scrapedContent.length >= 5) { // Stop after 5 good results
-        console.log(`✅ Early termination: Found ${scrapedContent.length} results, stopping search`);
-        break;
-      }
+      // Remove early termination - we need more raw material to get 5+ qualified leads
+      // Continue processing until we have enough potential leads for filtering
       
       // Process batch in parallel
       const batchPromises = batch.map(async (query: SearchQuery) => {
