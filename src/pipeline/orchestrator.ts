@@ -287,105 +287,57 @@ export class PipelineOrchestrator {
 
   /**
    * REAL search using SerpAPI content directly with caching and smart rotation
-   * Optimized for speed with parallel processing and early termination
+   * Optimized for speed with parallel processing and manual seed fallback
    */
   private async realSearchAndScrape(queries: SearchQuery[]): Promise<ScrapedContent[]> {
     const scrapedContent: ScrapedContent[] = [];
-    let processedQueries = 0;
     const maxQueries = 25; // Increased to ensure enough raw material for 5+ leads
-    // const targetLeads = 15; // Removed artificial limit to allow full query processing
     
-    console.log(`🚀 Processing ${Math.min(queries.length, maxQueries)} search queries with caching`);
+    console.log(`🚀 Processing ${Math.min(queries.length, maxQueries)} search queries with manual seed fallback`);
     
-    // Process searches in smaller batches for better control
-    const batchSize = 2; // Keep batch size small for control
     const limitedQueries = queries.slice(0, maxQueries);
     
-    for (let i = 0; i < limitedQueries.length; i += batchSize) {
-      const batch = limitedQueries.slice(i, i + batchSize);
-      console.log(`\n📦 Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(limitedQueries.length/batchSize)} (${batch.length} queries)`);
+    // CRITICAL FIX: Use the batch search method that includes manual seed system
+    console.log(`🔍 Executing batch search with ${limitedQueries.length} queries`);
+    const searchResultsMap = await this.searchAgent.executeBatchSearch(limitedQueries);
+    
+    console.log(`📊 Batch search completed: ${searchResultsMap.size} search results received`);
+    
+    // Convert search results to ScrapedContent
+    for (const [queryId, searchResults] of searchResultsMap.entries()) {
+      console.log(`📋 Processing ${searchResults.length} results for query ${queryId}`);
       
-      // Remove early termination - we need more raw material to get 5+ qualified leads
-      // Continue processing until we have enough potential leads for filtering
+      // Convert SerpAPI results directly to ScrapedContent (no browser needed!)
+      for (const result of searchResults.slice(0, 5)) { // Process top 5 results per query for better diversity
+        if (result.link && this.isValidUrl(result.link)) {
+          const eventInfo = this.extractEventInfoFromSnippet(result.snippet || '', result.title || '');
       
-      // Process batch in parallel
-      const batchPromises = batch.map(async (query: SearchQuery) => {
-        try {
-          console.log(`🔍 Executing search: ${query.query}`);
-          
-          // Use cached operation for search
-          const searchResults = await this.performanceOptimizer.cachedOperation(
-            `search-${query.query}`,
-            async () => {
-              return await Promise.race([
-                this.searchAgent.executeSearch(query),
-                new Promise<any[]>((_, reject) => 
-                  setTimeout(() => reject(new Error('Search timeout')), 30000) // Increased timeout to 30s for better reliability
-                )
-              ]);
-            },
-            { cost: 0.02, ttl: 3600000 } // Cache for 1 hour
-          );
-          
-          const batchResults: ScrapedContent[] = [];
-          
-          // Convert SerpAPI results directly to ScrapedContent (no browser needed!)
-          for (const result of searchResults.slice(0, 5)) { // Process top 5 results per query for better diversity
-            if (result.link && this.isValidUrl(result.link)) {
-              const eventInfo = this.extractEventInfoFromSnippet(result.snippet || '', result.title || '');
-          
-              // Only include results with future event dates
-              if (eventInfo.hasFutureDate) {
-                const scrapedData: ScrapedContent = {
-                  id: `serp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                  url: result.link,
-                  title: result.title || 'No title',
-                  content: result.snippet || '',
-                  images: [],
-                  scrapedAt: new Date(),
-                  processingStatus: 'pending',
-                  statusCode: 200,
-                  eventInfo: eventInfo,
-                  contactInfo: this.extractContactInfoFromSnippet(result.snippet || ''),
-                  organizationInfo: this.extractOrgInfoFromSnippet(result.snippet || '', result.title || '')
-                };
-                
-                batchResults.push(scrapedData);
-                console.log(`✅ Found future event: ${scrapedData.title} (${eventInfo.date})`);
-              } else {
-                console.log(`⏭️  Skipping past event: ${result.title}`);
-            }
+          // Only include results with future event dates
+          if (eventInfo.hasFutureDate) {
+            const scrapedData: ScrapedContent = {
+              id: `serp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              url: result.link,
+              title: result.title || 'No title',
+              content: result.snippet || '',
+              images: [],
+              scrapedAt: new Date(),
+              processingStatus: 'pending',
+              statusCode: 200,
+              eventInfo: eventInfo,
+              contactInfo: this.extractContactInfoFromSnippet(result.snippet || ''),
+              organizationInfo: this.extractOrgInfoFromSnippet(result.snippet || '', result.title || '')
+            };
+            
+            scrapedContent.push(scrapedData);
+            console.log(`✅ Found future event: ${scrapedData.title} (${eventInfo.date})`);
+          } else {
+            console.log(`⏭️  Skipping past event: ${result.title}`);
           }
-          }
-          
-          return batchResults;
-          
-        } catch (error) {
-          console.error(`❌ Search failed for query: ${query.query}`, error);
-          query.status = 'failed';
-          return [];
         }
-      });
-      
-      // Wait for batch to complete
-      const batchResults = await Promise.all(batchPromises);
-      
-      // Flatten and add results
-      for (const results of batchResults) {
-        scrapedContent.push(...results);
       }
-      
-      processedQueries += batch.length;
-      console.log(`📊 Processed ${processedQueries}/${limitedQueries.length} queries, found ${scrapedContent.length} potential leads`);
-      
-      // Continue processing all queries to ensure diversity and reach minimum 5 leads
-      logger.debug(`Continue processing: ${scrapedContent.length} potential leads found so far`);
-      
-      // Small delay between batches
-      await new Promise(resolve => setTimeout(resolve, 100)); // Reduced delay
     }
     
-    console.log(`✅ Search completed: ${scrapedContent.length} potential leads from ${processedQueries} queries`);
+    console.log(`✅ Search completed: ${scrapedContent.length} potential leads from ${limitedQueries.length} queries`);
     return scrapedContent;
   }
 
