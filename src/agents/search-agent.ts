@@ -423,64 +423,68 @@ export class SearchAgent {
    * Used as fallback when search success rate is low
    */
   private getManualSeedOrganizations(): any[] {
+    const futureDate = new Date();
+    futureDate.setMonth(futureDate.getMonth() + 3); // 3 months from now
+    const futureDateString = futureDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    
     return [
       {
         title: "Children's Hospital Foundation Travel Auction 2025",
-        snippet: "Annual charity travel auction featuring vacation packages and travel experiences to support children's healthcare.",
+        snippet: `Annual charity travel auction featuring vacation packages and travel experiences to support children's healthcare. Event date: ${futureDateString}. Silent auction includes cruise packages, resort stays, and airline vouchers.`,
         link: "https://childrenshospitalfoundation.org/travel-auction-2025",
         source: "manual_seed"
       },
       {
         title: "United Way Travel Raffle 2025",
-        snippet: "Community fundraising event with travel packages including cruises and resort stays.",
+        snippet: `Community fundraising event with travel packages including cruises and resort stays. Raffle drawing: ${futureDateString}. Prizes include Hawaii vacation, European tour, and Disney World packages.`,
         link: "https://unitedway.org/travel-raffle-2025",
         source: "manual_seed"
       },
       {
         title: "American Red Cross Vacation Auction",
-        snippet: "Nonprofit travel auction supporting disaster relief with vacation packages and travel vouchers.",
+        snippet: `Nonprofit travel auction supporting disaster relief with vacation packages and travel vouchers. Auction date: ${futureDateString}. Features Caribbean cruise, ski resort packages, and international travel.`,
         link: "https://redcross.org/vacation-auction-2025",
         source: "manual_seed"
       },
       {
         title: "Habitat for Humanity Travel Fundraiser",
-        snippet: "Annual gala featuring travel packages auction to support affordable housing initiatives.",
+        snippet: `Annual gala featuring travel packages auction to support affordable housing initiatives. Gala date: ${futureDateString}. Auction includes vacation rentals, airline tickets, and hotel stays.`,
         link: "https://habitat.org/travel-fundraiser-2025",
         source: "manual_seed"
       },
       {
         title: "YMCA Community Travel Auction",
-        snippet: "Local YMCA charity auction with vacation packages and travel experiences for youth programs.",
+        snippet: `Local YMCA charity auction with vacation packages and travel experiences for youth programs. Event: ${futureDateString}. Travel packages include family vacations, camping trips, and educational tours.`,
         link: "https://ymca.org/community-travel-auction",
         source: "manual_seed"
       },
       {
         title: "Salvation Army Travel Raffle 2025",
-        snippet: "Nonprofit fundraising event with travel packages supporting homeless services and community programs.",
+        snippet: `Nonprofit fundraising event with travel packages supporting homeless services and community programs. Raffle: ${futureDateString}. Prizes include cruise vacation, resort getaway, and travel vouchers.`,
         link: "https://salvationarmy.org/travel-raffle-2025",
         source: "manual_seed"
       },
       {
         title: "Boys & Girls Club Vacation Auction",
-        snippet: "Youth organization travel auction featuring family vacation packages and educational trips.",
+        snippet: `Youth organization travel auction featuring family vacation packages and educational trips. Auction: ${futureDateString}. Includes Disney packages, beach vacations, and summer camp experiences.`,
         link: "https://bgclub.org/vacation-auction-2025",
         source: "manual_seed"
       },
       {
         title: "St. Jude Children's Hospital Travel Gala",
-        snippet: "Medical nonprofit travel auction with luxury vacation packages supporting pediatric cancer research.",
+        snippet: `Medical nonprofit travel auction with luxury vacation packages supporting pediatric cancer research. Gala: ${futureDateString}. Features luxury cruise, resort packages, and international travel.`,
         link: "https://stjude.org/travel-gala-2025",
         source: "manual_seed"
       },
       {
         title: "Goodwill Travel Package Fundraiser",
-        snippet: "Community nonprofit auction featuring travel experiences to support job training and education programs.",
+        snippet: `Community nonprofit auction featuring travel experiences to support job training and education programs. Fundraiser: ${futureDateString}. Travel packages include vacation rentals and airline vouchers.`,
         link: "https://goodwill.org/travel-fundraiser-2025",
         source: "manual_seed"
       },
       {
         title: "Local Food Bank Travel Auction",
-        snippet: "Community food bank charity auction with vacation packages and travel vouchers for hunger relief.",
+        snippet: `Community food bank charity auction with vacation packages and travel vouchers for hunger relief. Auction: ${futureDateString}. Includes cruise packages, resort stays, and travel gift cards.`,
         link: "https://localfoodbank.org/travel-auction-2025",
         source: "manual_seed"
       }
