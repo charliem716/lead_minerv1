@@ -896,7 +896,7 @@ const server = http.createServer((req, res) => {
     addLog('info', 'Pipeline execution started', 'system');
     
     const child = spawn('node', ['dist/production-app.js', '--once'], {
-      cwd: '/opt/leadminer',
+      cwd: '/root/LeadMinerv1',
       stdio: 'pipe'
     });
     
@@ -907,23 +907,35 @@ const server = http.createServer((req, res) => {
       const dataStr = data.toString();
       output += dataStr;
       
+      // Log raw output for debugging
+      const lines = dataStr.split('\n').filter(line => line.trim());
+      lines.forEach(line => {
+        if (line.trim()) {
+          addLog('info', line.trim(), pipelineStatus.currentPhase);
+        }
+      });
+      
       // Parse progress from output
-      if (dataStr.includes('Phase 1:')) {
+      if (dataStr.includes('📋 Phase 1:') || dataStr.includes('Phase 1:')) {
         pipelineStatus.currentPhase = 'search-queries';
         pipelineStatus.progress = 0.2;
         addLog('info', 'Generating search queries', 'search');
-      } else if (dataStr.includes('Phase 2:')) {
+      } else if (dataStr.includes('🔍 Phase 2:') || dataStr.includes('Phase 2:')) {
         pipelineStatus.currentPhase = 'scraping';
         pipelineStatus.progress = 0.4;
         addLog('info', 'Scraping web content', 'scraping');
-      } else if (dataStr.includes('Phase 3:')) {
+      } else if (dataStr.includes('🤖 Phase 3:') || dataStr.includes('Phase 3:')) {
         pipelineStatus.currentPhase = 'classification';
         pipelineStatus.progress = 0.6;
         addLog('info', 'Classifying content', 'classification');
-      } else if (dataStr.includes('Phase 4:')) {
+      } else if (dataStr.includes('💎 Phase 4:') || dataStr.includes('Phase 4:')) {
         pipelineStatus.currentPhase = 'final-leads';
         pipelineStatus.progress = 0.8;
         addLog('info', 'Creating final leads', 'leads');
+      } else if (dataStr.includes('📊 Phase 5:') || dataStr.includes('Phase 5:')) {
+        pipelineStatus.currentPhase = 'output';
+        pipelineStatus.progress = 0.9;
+        addLog('info', 'Writing to Google Sheets', 'output');
       }
       
       // Extract stats from output

@@ -20,15 +20,15 @@ export const config: Config = {
     excludeStates: process.env['EXCLUDE_STATES']?.split(',') || ['AK', 'HI']
   },
   precision: {
-    confidenceThreshold: parseFloat(process.env['CONFIDENCE_THRESHOLD'] || '0.60'), // Lowered from 0.75 to 0.60 for more leads
+    confidenceThreshold: parseFloat(process.env['CONFIDENCE_THRESHOLD'] || '0.20'), // AGGRESSIVE: Lowered to 20% to capture all potential leads
     requireMultipleKeywords: process.env['REQUIRE_MULTIPLE_KEYWORDS'] === 'true',
     strictNonprofitVerification: process.env['STRICT_NONPROFIT_VERIFICATION'] !== 'false'
   },
   limits: {
-    maxLeadsPerDay: parseInt(process.env['MAX_LEADS_PER_DAY'] || '10'),
-    maxSearchQueries: parseInt(process.env['MAX_SEARCH_QUERIES'] || '50'),
-    budgetLimit: parseInt(process.env['BUDGET_LIMIT'] || '50'),
-    maxRequestsPerMinute: parseInt(process.env['MAX_REQUESTS_PER_MINUTE'] || '30')
+    maxLeadsPerDay: parseInt(process.env['MAX_LEADS_PER_DAY'] || '20'), // Increased for more leads
+    maxSearchQueries: parseInt(process.env['MAX_SEARCH_QUERIES'] || '100'), // Increased dramatically from 75 to 100
+    budgetLimit: parseInt(process.env['BUDGET_LIMIT'] || '75'), // Increased budget
+    maxRequestsPerMinute: parseInt(process.env['MAX_REQUESTS_PER_MINUTE'] || '40') // Increased rate
   },
   apis: {
     openai: {
