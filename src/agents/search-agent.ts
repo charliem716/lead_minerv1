@@ -352,6 +352,8 @@ export class SearchAgent {
     const results = new Map<string, any[]>();
     let successfulSearches = 0;
     
+    console.log(`🔍 Starting batch search with ${queries.length} queries`);
+    
     for (const query of queries) {
       if (this.requestCount >= this.dailyLimit) {
         console.warn(`Stopping batch search: Daily limit of ${this.dailyLimit} reached`);
@@ -376,12 +378,20 @@ export class SearchAgent {
       }
     }
 
-    // If search success rate is very low (< 10%), supplement with manual seed data
-    const successRate = (successfulSearches / queries.length) * 100;
-    console.log(`Search success rate: ${successRate.toFixed(1)}%`);
+    // Calculate and log search success rate
+    const successRate = queries.length > 0 ? (successfulSearches / queries.length) * 100 : 0;
+    console.log(`🔍 Search success rate: ${successRate.toFixed(1)}% (${successfulSearches}/${queries.length})`);
     
-    if (successRate < 10 && successfulSearches < 5) {
-      console.log(`🌱 Low search success rate detected. Adding manual seed organizations...`);
+    // FORCE manual seed system when search success is low OR when we have very few results
+    const totalResults = Array.from(results.values()).reduce((sum, arr) => sum + arr.length, 0);
+    const shouldUseSeed = successRate < 15 || successfulSearches < 3 || totalResults < 5;
+    
+    if (shouldUseSeed) {
+      console.log(`🌱 TRIGGERING MANUAL SEED SYSTEM - Low search success detected`);
+      console.log(`   - Success rate: ${successRate.toFixed(1)}%`);
+      console.log(`   - Successful searches: ${successfulSearches}`);
+      console.log(`   - Total results: ${totalResults}`);
+      
       const seedResults = this.getManualSeedOrganizations();
       
       // Add seed results as if they came from searches
@@ -400,6 +410,9 @@ export class SearchAgent {
       });
       
       console.log(`✅ Added ${seedResults.length} manual seed organizations to improve results`);
+      console.log(`📊 Final results: ${results.size} total searches, ${Array.from(results.values()).reduce((sum, arr) => sum + arr.length, 0)} total results`);
+    } else {
+      console.log(`✅ Search success rate acceptable, no manual seed needed`);
     }
 
     return results;
